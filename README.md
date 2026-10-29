@@ -49,26 +49,26 @@ A responsive, high-performance web dashboard built for financial teams to ingest
 
 ```mermaid
 flowchart TD
-    App[App Container] --> ThemeProvider[ThemeContext Provider]
-    ThemeProvider --> Router[React Router DOM]
-    Router --> Layout[App Shell Layout]
-    Layout --> Navbar[Top Navigation & Status Badges]
-    Layout --> Sidebar[Sidebar Navigation & Live Counters]
-    Layout --> Pages[Routed Page Views]
+    App["App Container"] --> ThemeProvider["ThemeContext Provider"]
+    ThemeProvider --> Router["React Router DOM"]
+    Router --> Layout["App Shell Layout"]
+    Layout --> Navbar["Top Navigation & Status Badges"]
+    Layout --> Sidebar["Sidebar Navigation & Live Counters"]
+    Layout --> Pages["Routed Page Views"]
     
-    Pages --> P1[DashboardPage]
-    Pages --> P2[ImportPage]
-    Pages --> P3[TransactionsPage]
-    Pages --> P4[ClarificationQueuePage]
-    Pages --> P5[ApprovalQueuePage]
-    Pages --> P6[TallyPage]
-    Pages --> P7[ImportHistoryPage]
-    Pages --> P8[AuditLogsPage]
-    Pages --> P9[SettingsPage]
+    Pages --> P1["DashboardPage"]
+    Pages --> P2["ImportPage"]
+    Pages --> P3["TransactionsPage"]
+    Pages --> P4["ClarificationQueuePage"]
+    Pages --> P5["ApprovalQueuePage"]
+    Pages --> P6["TallyPage"]
+    Pages --> P7["ImportHistoryPage"]
+    Pages --> P8["AuditLogsPage"]
+    Pages --> P9["SettingsPage"]
 
-    Pages --> ApiService[Axios API Client]
-    ApiService --> Proxy[/api Proxy / Vite Server]
-    Proxy --> FlaskBE[Flask Backend :8000]
+    Pages --> ApiService["Axios API Client"]
+    ApiService --> Proxy["Vite /api Proxy"]
+    Proxy --> FlaskBE["Flask Backend (Port 8000)"]
 ```
 
 ---
