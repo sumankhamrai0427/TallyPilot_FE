@@ -16,21 +16,35 @@ import { api } from '../services/api';
 import { DashboardSummary } from '../types';
 import { useTheme } from '../context/ThemeContext';
 
-export const DashboardPage: React.FC = () => {
-  const [summary, setSummary] = useState<DashboardSummary | null>(null);
-  const [loading, setLoading] = useState(true);
+interface DashboardPageProps {
+  summary?: DashboardSummary | null;
+  onRefresh?: () => void;
+}
+
+export const DashboardPage: React.FC<DashboardPageProps> = ({ summary: propSummary, onRefresh }) => {
+  const [localSummary, setLocalSummary] = useState<DashboardSummary | null>(null);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { theme } = useTheme();
 
+  const summary = propSummary || localSummary;
+
   useEffect(() => {
-    loadSummary();
-  }, []);
+    // Only fetch if parent has not already provided summary
+    if (!propSummary && !localSummary) {
+      loadSummary();
+    }
+  }, [propSummary]);
 
   const loadSummary = async () => {
+    if (onRefresh) {
+      onRefresh();
+      return;
+    }
     try {
       setLoading(true);
       const data = await api.getDashboardSummary();
-      setSummary(data);
+      setLocalSummary(data);
     } catch (err) {
       console.error("Failed to load dashboard summary:", err);
     } finally {

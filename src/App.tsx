@@ -41,7 +41,7 @@ export const App: React.FC = () => {
             <Navbar summary={summary} />
             <main className="flex-1 p-6 max-w-7xl w-full mx-auto">
               <Routes>
-                <Route path="/" element={<DashboardPage />} />
+                <Route path="/" element={<DashboardPage summary={summary} onRefresh={loadSummary} />} />
                 <Route path="/import" element={<ImportPage />} />
                 <Route path="/transactions" element={<TransactionsPage />} />
                 <Route path="/clarification" element={<ClarificationQueuePage />} />
