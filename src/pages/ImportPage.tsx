@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   UploadCloud,
   FileSpreadsheet,
@@ -9,8 +9,13 @@ import {
   FolderSync,
   X,
   FileUp,
-  Files
+  Files,
+  Database,
+  ArrowRight,
+  Clock,
+  CheckCheck
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { api } from '../services/api';
 import { ImportBatch } from '../types';
 
@@ -24,6 +29,26 @@ export const ImportPage: React.FC = () => {
   const [uploadResults, setUploadResults] = useState<ImportBatch[]>([]);
   const [failedFiles, setFailedFiles] = useState<{ filename: string; error: string }[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Persistent batches loaded from Database
+  const [batches, setBatches] = useState<ImportBatch[]>([]);
+  const [isLoadingBatches, setIsLoadingBatches] = useState<boolean>(true);
+
+  const loadBatches = async () => {
+    try {
+      setIsLoadingBatches(true);
+      const data = await api.getBatches();
+      setBatches(data || []);
+    } catch (err: any) {
+      console.error("Failed to load batches from database:", err);
+    } finally {
+      setIsLoadingBatches(false);
+    }
+  };
+
+  useEffect(() => {
+    loadBatches();
+  }, []);
 
   const formatFileSize = (bytes: number): string => {
     if (bytes < 1024) return `${bytes} B`;
@@ -135,6 +160,8 @@ export const ImportPage: React.FC = () => {
       }
 
       setSelectedFiles([]);
+      // Refresh persistent database batches list
+      loadBatches();
     } catch (err: any) {
       setErrorMessage(err.response?.data?.detail || err.message || "Failed to process bank statement(s)");
     } finally {
@@ -149,6 +176,7 @@ export const ImportPage: React.FC = () => {
       const res = await api.scanInputFolder();
       if (res.length > 0) {
         setUploadResults(res);
+        loadBatches();
       } else {
         setErrorMessage("No new statement files (.xlsx, .xls, .csv, .pdf, .txt) found in the ./input watcher directory.");
       }
@@ -364,7 +392,7 @@ export const ImportPage: React.FC = () => {
               >
                 <div>
                   <span className="text-emerald-700 dark:text-emerald-400 block font-medium">File Name:</span>
-                  <span className="font-bold text-slate-800 dark:text-white truncate block max-w-[150px] title={batch.filename}">
+                  <span className="font-bold text-slate-800 dark:text-white truncate block max-w-[150px]" title={batch.filename}>
                     {batch.filename}
                   </span>
                 </div>
@@ -391,6 +419,131 @@ export const ImportPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Persistent Documents & Batches In Database */}
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center text-blue-600 dark:text-blue-400">
+              <Database className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-800 dark:text-white">
+                Imported Documents & Statement Batches
+              </h3>
+              <p className="text-xs text-slate-400 dark:text-slate-500">
+                All statement files ingested and stored in the database.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={loadBatches}
+              disabled={isLoadingBatches}
+              className="px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors flex items-center gap-1.5 border border-slate-200 dark:border-slate-700 cursor-pointer"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoadingBatches ? 'animate-spin' : ''}`} />
+              <span>Refresh</span>
+            </button>
+            <Link
+              to="/transactions"
+              className="px-3 py-1.5 text-xs font-semibold bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/60 rounded-lg transition-colors flex items-center gap-1.5 border border-blue-200 dark:border-blue-800 cursor-pointer"
+            >
+              <span>Transaction Review</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        </div>
+
+        {isLoadingBatches ? (
+          <div className="py-8 flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 gap-2">
+            <i className="pi pi-spin pi-spinner text-xl text-blue-600 dark:text-blue-400"></i>
+            <span className="text-xs">Loading imported statement batches...</span>
+          </div>
+        ) : batches.length === 0 ? (
+          <div className="py-10 text-center text-slate-400 dark:text-slate-500 text-xs">
+            <FileSpreadsheet className="w-8 h-8 mx-auto mb-2 opacity-40" />
+            <span>No statements imported yet. Upload a statement file above or scan the ./input directory.</span>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider text-[11px] bg-slate-50/50 dark:bg-slate-800/40">
+                  <th className="py-2.5 px-3">Batch ID</th>
+                  <th className="py-2.5 px-3">Source File</th>
+                  <th className="py-2.5 px-3 text-center">Total Rows</th>
+                  <th className="py-2.5 px-3 text-center">Valid Parsed</th>
+                  <th className="py-2.5 px-3">Status</th>
+                  <th className="py-2.5 px-3">Import Date</th>
+                  <th className="py-2.5 px-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {batches.map((batch) => {
+                  const ext = batch.filename.split('.').pop()?.toLowerCase() || '';
+                  return (
+                    <tr
+                      key={batch.id}
+                      className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors"
+                    >
+                      <td className="py-3 px-3">
+                        <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                          {batch.batch_id}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3">
+                        <div className="flex items-center gap-2">
+                          <span className={`px-1.5 py-0.5 rounded font-mono font-bold text-[10px] uppercase border ${getFileBadgeColor(ext)}`}>
+                            {ext || 'FILE'}
+                          </span>
+                          <span className="font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[200px]" title={batch.filename}>
+                            {batch.filename}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-3 text-center font-medium text-slate-600 dark:text-slate-400">
+                        {batch.total_rows}
+                      </td>
+                      <td className="py-3 px-3 text-center font-bold text-emerald-600 dark:text-emerald-400">
+                        {batch.parsed_rows}
+                      </td>
+                      <td className="py-3 px-3">
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-bold text-[10px] uppercase ${
+                          batch.status === 'COMPLETED'
+                            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                            : batch.status === 'FAILED'
+                            ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
+                            : 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                        }`}>
+                          {batch.status === 'COMPLETED' && <CheckCheck className="w-3 h-3" />}
+                          {batch.status}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5 text-[11px]">
+                          <Clock className="w-3 h-3 text-slate-400" />
+                          <span>{batch.created_at ? new Date(batch.created_at).toLocaleString() : 'N/A'}</span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-3 text-right">
+                        <Link
+                          to={`/transactions?batch_id=${batch.id}`}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline"
+                        >
+                          <span>Review</span>
+                          <ArrowRight className="w-3 h-3" />
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
