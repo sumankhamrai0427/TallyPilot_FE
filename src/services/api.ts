@@ -28,6 +28,18 @@ export const api = {
       headers: { 'Content-Type': 'multipart/form-data' }
     }).then(r => r.data);
   },
+  uploadFiles: (files: File[]) => {
+    const formData = new FormData();
+    files.forEach(f => formData.append('files', f));
+    return apiClient.post<{
+      batches: ImportBatch[];
+      total_files: number;
+      successful_count: number;
+      failed_files: { filename: string; error: string }[];
+    }>('/files/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    }).then(r => r.data);
+  },
   scanInputFolder: () => apiClient.post<ImportBatch[]>('/files/scan').then(r => r.data),
   getBatches: () => apiClient.get<ImportBatch[]>('/files/batches').then(r => r.data),
 
