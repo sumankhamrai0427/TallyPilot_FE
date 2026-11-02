@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   BookOpen, Plus, CheckCircle, AlertCircle, Filter,
   Search, Eye, RefreshCw, ArrowRightLeft, FileSpreadsheet,
-  Check, X
+  Check, X, Edit3, RotateCcw, AlertTriangle
 } from 'lucide-react';
 import { api } from '../services/api';
 import { Voucher, LedgerItem, Party, GeneralLedgerEntry } from '../types';
@@ -23,13 +23,20 @@ export const VouchersPage: React.FC = () => {
   // Modal State
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
   const [showDetailModal, setShowDetailModal] = useState<boolean>(false);
+  const [showReverseModal, setShowReverseModal] = useState<boolean>(false);
+  const [editingVoucherId, setEditingVoucherId] = useState<number | null>(null);
   const [activeVoucher, setActiveVoucher] = useState<Voucher | null>(null);
 
-  // Form State
-  const [newVoucherType, setNewVoucherType] = useState<string>('Payment');
-  const [newVoucherDate, setNewVoucherDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [newNarration, setNewNarration] = useState<string>('');
-  const [newAutoPost, setNewAutoPost] = useState<boolean>(true);
+  // Reversal Form State
+  const [reversalReason, setReversalReason] = useState<string>('');
+  const [isReversing, setIsReversing] = useState<boolean>(false);
+  const [reverseError, setReverseError] = useState<string>('');
+
+  // Create / Edit Form State
+  const [voucherType, setVoucherType] = useState<string>('Payment');
+  const [voucherDate, setVoucherDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [narration, setNarration] = useState<string>('');
+  const [autoPost, setAutoPost] = useState<boolean>(true);
   const [lines, setLines] = useState<Array<{ ledger_id: number; party_id?: number | null; debit_amount: number; credit_amount: number; narration: string }>>([
     { ledger_id: 0, debit_amount: 0, credit_amount: 0, narration: '' },
     { ledger_id: 0, debit_amount: 0, credit_amount: 0, narration: '' },
@@ -56,7 +63,7 @@ export const VouchersPage: React.FC = () => {
         setTotalCount(res.total);
       }
     } catch (err: any) {
-      console.error('Error fetching data:', err);
+      console.error('Error fetching vouchers:', err);
     } finally {
       setLoading(false);
     }
@@ -104,7 +111,45 @@ export const VouchersPage: React.FC = () => {
     setLines(updated);
   };
 
-  const handleCreateVoucher = async (e: React.FormEvent) => {
+  const openCreateModal = () => {
+    setEditingVoucherId(null);
+    setVoucherType('Payment');
+    setVoucherDate(new Date().toISOString().split('T')[0]);
+    setNarration('');
+    setAutoPost(true);
+    setLines([
+      { ledger_id: 0, debit_amount: 0, credit_amount: 0, narration: '' },
+      { ledger_id: 0, debit_amount: 0, credit_amount: 0, narration: '' },
+    ]);
+    setFormError('');
+    setShowCreateModal(true);
+  };
+
+  const openEditModal = (v: Voucher) => {
+    setEditingVoucherId(v.id);
+    setVoucherType(v.voucher_type);
+    setVoucherDate(v.voucher_date.split('T')[0]);
+    setNarration(v.narration || '');
+    setAutoPost(false);
+    if (v.lines && v.lines.length >= 2) {
+      setLines(v.lines.map(l => ({
+        ledger_id: l.ledger_id,
+        party_id: l.party_id,
+        debit_amount: l.debit_amount,
+        credit_amount: l.credit_amount,
+        narration: l.narration || ''
+      })));
+    } else {
+      setLines([
+        { ledger_id: 0, debit_amount: 0, credit_amount: 0, narration: '' },
+        { ledger_id: 0, debit_amount: 0, credit_amount: 0, narration: '' },
+      ]);
+    }
+    setFormError('');
+    setShowCreateModal(true);
+  };
+
+  const handleSaveVoucher = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError('');
 
@@ -121,30 +166,37 @@ export const VouchersPage: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      await api.createVoucher({
-        voucher_type: newVoucherType,
-        voucher_date: newVoucherDate,
-        narration: newNarration,
-        lines: lines.map(l => ({
-          ledger_id: Number(l.ledger_id),
-          party_id: l.party_id ? Number(l.party_id) : null,
-          debit_amount: Number(l.debit_amount) || 0,
-          credit_amount: Number(l.credit_amount) || 0,
-          narration: l.narration || newNarration
-        })),
-        auto_post: newAutoPost
-      });
+      const payloadLines = lines.map(l => ({
+        ledger_id: Number(l.ledger_id),
+        party_id: l.party_id ? Number(l.party_id) : null,
+        debit_amount: Number(l.debit_amount) || 0,
+        credit_amount: Number(l.credit_amount) || 0,
+        narration: l.narration || narration
+      }));
+
+      if (editingVoucherId) {
+        // HLA 7.6 Draft edit
+        await api.updateVoucherDraft(editingVoucherId, {
+          voucher_type: voucherType,
+          voucher_date: voucherDate,
+          narration: narration,
+          lines: payloadLines
+        });
+      } else {
+        // New creation
+        await api.createVoucher({
+          voucher_type: voucherType,
+          voucher_date: voucherDate,
+          narration: narration,
+          lines: payloadLines,
+          auto_post: autoPost
+        });
+      }
 
       setShowCreateModal(false);
-      // Reset form
-      setNewNarration('');
-      setLines([
-        { ledger_id: 0, debit_amount: 0, credit_amount: 0, narration: '' },
-        { ledger_id: 0, debit_amount: 0, credit_amount: 0, narration: '' },
-      ]);
       fetchVouchers();
     } catch (err: any) {
-      setFormError(err.response?.data?.detail || err.message || 'Failed to create voucher');
+      setFormError(err.response?.data?.detail || err.message || 'Failed to save voucher');
     } finally {
       setIsSubmitting(false);
     }
@@ -159,6 +211,48 @@ export const VouchersPage: React.FC = () => {
     }
   };
 
+  const openReverseModal = (v: Voucher) => {
+    setActiveVoucher(v);
+    setReversalReason('');
+    setReverseError('');
+    setShowReverseModal(true);
+  };
+
+  const handleConfirmReverse = async () => {
+    if (!activeVoucher) return;
+    if (!reversalReason.trim()) {
+      setReverseError('Please enter a clear reason for reversing this voucher.');
+      return;
+    }
+
+    setIsReversing(true);
+    setReverseError('');
+    try {
+      await api.reverseVoucher(activeVoucher.id, reversalReason.trim());
+      setShowReverseModal(false);
+      fetchVouchers();
+    } catch (err: any) {
+      setReverseError(err.response?.data?.detail || err.message || 'Failed to reverse voucher');
+    } finally {
+      setIsReversing(false);
+    }
+  };
+
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return '—';
+    try {
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
+      return d.toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+      }).replace(/ /g, '-');
+    } catch {
+      return dateStr;
+    }
+  };
+
   return (
     <div className="p-8 space-y-6">
       {/* Header */}
@@ -166,16 +260,16 @@ export const VouchersPage: React.FC = () => {
         <div>
           <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
             <BookOpen className="w-6 h-6 text-blue-600" />
-            Double-Entry Accounting & General Ledger
+            Vouchers & Operational Journal
           </h1>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Enforces strict balance constraints (Debit = Credit) with multi-tenant company isolation.
+            Create, edit drafts, post, and reverse double-entry vouchers (Debit = Credit) with full audit preservation.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           <button
-            onClick={() => setShowCreateModal(true)}
+            onClick={openCreateModal}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold text-sm shadow-sm shadow-blue-500/20 transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4" />
@@ -227,13 +321,20 @@ export const VouchersPage: React.FC = () => {
             onChange={(e) => setSelectedType(e.target.value)}
             className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300"
           >
-            <option value="">All Voucher Types</option>
+            <option value="">All Voucher Types (13)</option>
             <option value="Payment">Payment</option>
             <option value="Receipt">Receipt</option>
             <option value="Contra">Contra</option>
             <option value="Journal">Journal</option>
             <option value="Sales">Sales</option>
             <option value="Purchase">Purchase</option>
+            <option value="Debit Note">Debit Note</option>
+            <option value="Credit Note">Credit Note</option>
+            <option value="Payroll">Payroll</option>
+            <option value="Opening Balance">Opening Balance</option>
+            <option value="Fixed Asset">Fixed Asset</option>
+            <option value="Depreciation">Depreciation</option>
+            <option value="Adjustment">Adjustment</option>
           </select>
 
           <select
@@ -244,6 +345,7 @@ export const VouchersPage: React.FC = () => {
             <option value="">All Statuses</option>
             <option value="DRAFT">Draft</option>
             <option value="POSTED">Posted</option>
+            <option value="REVERSED">Reversed</option>
             <option value="APPROVED">Approved</option>
           </select>
 
@@ -269,9 +371,9 @@ export const VouchersPage: React.FC = () => {
                   <th className="px-5 py-3.5">Type</th>
                   <th className="px-5 py-3.5">Narration</th>
                   <th className="px-5 py-3.5 text-right">Amount (₹)</th>
-                  <th className="px-5 py-3.5">Status</th>
+                  <th className="px-5 py-3.5 text-center">Status</th>
                   <th className="px-5 py-3.5 text-center">Lines</th>
-                  <th className="px-5 py-3.5 text-right">Actions</th>
+                  <th className="px-5 py-3.5 text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -284,57 +386,83 @@ export const VouchersPage: React.FC = () => {
                 ) : vouchers.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="px-5 py-8 text-center text-slate-400">
-                      No vouchers found. Click "New Double-Entry Voucher" to create one.
+                      No vouchers found. Click "New Double-Entry Voucher" to record one.
                     </td>
                   </tr>
                 ) : (
                   vouchers.map((v) => (
                     <tr key={v.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
-                      <td className="px-5 py-3 font-semibold text-slate-900 dark:text-white">
+                      <td className="px-5 py-3 font-semibold text-slate-900 dark:text-white whitespace-nowrap">
                         {v.voucher_number}
                       </td>
                       <td className="px-5 py-3 text-slate-500 whitespace-nowrap">
-                        {v.voucher_date}
+                        {formatDate(v.voucher_date)}
                       </td>
                       <td className="px-5 py-3">
-                        <span className={`px-2 py-0.5 rounded text-xs font-bold ${v.voucher_type === 'Payment' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300' :
-                            v.voucher_type === 'Receipt' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' :
-                              v.voucher_type === 'Contra' ? 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300' :
-                                'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
-                          }`}>
+                        <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+                          v.voucher_type === 'Payment' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300' :
+                          v.voucher_type === 'Receipt' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' :
+                          v.voucher_type === 'Contra' ? 'bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300' :
+                          v.voucher_type === 'Sales' ? 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-300' :
+                          v.voucher_type === 'Purchase' ? 'bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300' :
+                          'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
+                        }`}>
                           {v.voucher_type}
                         </span>
                       </td>
-                      <td className="px-5 py-3 max-w-[280px] truncate text-slate-700 dark:text-slate-300">
+                      <td className="px-5 py-3 max-w-[260px] truncate text-slate-700 dark:text-slate-300" title={v.narration}>
                         {v.narration || '—'}
                       </td>
-                      <td className="px-5 py-3 text-right font-mono font-semibold text-slate-900 dark:text-white">
+                      <td className="px-5 py-3 text-right font-mono font-semibold text-slate-900 dark:text-white whitespace-nowrap">
                         ₹{Number(v.total_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                       </td>
-                      <td className="px-5 py-3">
-                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${v.status === 'POSTED' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400' :
-                            v.status === 'DRAFT' ? 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300' :
-                              'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400'
-                          }`}>
+                      <td className="px-5 py-3 text-center">
+                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                          v.status === 'POSTED' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400' :
+                          v.status === 'REVERSED' ? 'bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-400' :
+                          v.status === 'DRAFT' ? 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300' :
+                          'bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400'
+                        }`}>
                           {v.status}
                         </span>
                       </td>
                       <td className="px-5 py-3 text-center font-medium">
                         {v.lines?.length || 0}
                       </td>
-                      <td className="px-5 py-3 text-right space-x-2">
+                      <td className="px-5 py-3 text-center space-x-1.5 whitespace-nowrap">
                         <button
                           onClick={() => { setActiveVoucher(v); setShowDetailModal(true); }}
-                          className="px-2.5 py-1 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors"
+                          className="px-2.5 py-1 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors cursor-pointer"
                         >
                           Details
                         </button>
+
+                        {/* HLA 7.6 Draft edit */}
                         {v.status === 'DRAFT' && (
+                          <>
+                            <button
+                              onClick={() => openEditModal(v)}
+                              className="px-2.5 py-1 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-300 rounded transition-colors cursor-pointer"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handlePostVoucher(v.id)}
+                              className="px-2.5 py-1 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded transition-colors cursor-pointer shadow-xs"
+                            >
+                              Post
+                            </button>
+                          </>
+                        )}
+
+                        {/* HLA 7.5 Controlled Reversal */}
+                        {v.status === 'POSTED' && (
                           <button
-                            onClick={() => handlePostVoucher(v.id)}
-                            className="px-2.5 py-1 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded transition-colors"
+                            onClick={() => openReverseModal(v)}
+                            className="px-2.5 py-1 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-600 hover:text-white dark:bg-rose-950/40 dark:text-rose-300 rounded transition-colors cursor-pointer"
+                            title="Reverse this posted voucher"
                           >
-                            Post to GL
+                            Reverse
                           </button>
                         )}
                       </td>
@@ -354,7 +482,7 @@ export const VouchersPage: React.FC = () => {
                   <th className="px-5 py-3.5">Ledger Account</th>
                   <th className="px-5 py-3.5 text-right text-emerald-600 dark:text-emerald-400">Debit (₹)</th>
                   <th className="px-5 py-3.5 text-right text-blue-600 dark:text-blue-400">Credit (₹)</th>
-                  <th className="px-5 py-3.5">Status</th>
+                  <th className="px-5 py-3.5 text-center">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono">
@@ -368,7 +496,7 @@ export const VouchersPage: React.FC = () => {
                   glEntries.map((e) => (
                     <tr key={e.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
                       <td className="px-5 py-3 font-sans text-slate-500 whitespace-nowrap">
-                        {e.posting_date}
+                        {formatDate(e.posting_date)}
                       </td>
                       <td className="px-5 py-3 font-sans font-semibold text-slate-900 dark:text-white">
                         {e.voucher_number || `VCH #${e.voucher_id}`}
@@ -382,9 +510,11 @@ export const VouchersPage: React.FC = () => {
                       <td className="px-5 py-3 text-right font-semibold text-blue-600 dark:text-blue-400">
                         {e.credit_amount > 0 ? `₹${Number(e.credit_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—'}
                       </td>
-                      <td className="px-5 py-3 font-sans">
-                        <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
-                          POSTED
+                      <td className="px-5 py-3 text-center font-sans">
+                        <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                          e.is_reversed ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'
+                        }`}>
+                          {e.is_reversed ? 'REVERSED' : 'POSTED'}
                         </span>
                       </td>
                     </tr>
@@ -396,41 +526,50 @@ export const VouchersPage: React.FC = () => {
         )}
       </div>
 
-      {/* CREATE VOUCHER MODAL */}
+      {/* ======================================================== */}
+      {/* CREATE / EDIT VOUCHER MODAL (HLA Part 7.4 & 7.6) */}
+      {/* ======================================================== */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-4xl w-full border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden my-8">
             <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
               <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <BookOpen className="w-5 h-5 text-blue-600" />
-                Create Double-Entry Voucher
+                {editingVoucherId ? 'Edit Draft Voucher' : 'Create Double-Entry Voucher'}
               </h2>
               <button
                 onClick={() => setShowCreateModal(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-white"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateVoucher} className="p-6 space-y-6">
+            <form onSubmit={handleSaveVoucher} className="p-6 space-y-6">
               {/* Form Header Info */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                    Voucher Type
+                    Voucher Type (HLA 7.2)
                   </label>
                   <select
-                    value={newVoucherType}
-                    onChange={(e) => setNewVoucherType(e.target.value)}
+                    value={voucherType}
+                    onChange={(e) => setVoucherType(e.target.value)}
                     className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-semibold text-slate-900 dark:text-white"
                   >
-                    <option value="Payment">Payment</option>
-                    <option value="Receipt">Receipt</option>
-                    <option value="Contra">Contra</option>
-                    <option value="Journal">Journal</option>
-                    <option value="Sales">Sales</option>
-                    <option value="Purchase">Purchase</option>
+                    <option value="Payment">Payment Voucher</option>
+                    <option value="Receipt">Receipt Voucher</option>
+                    <option value="Contra">Contra Voucher</option>
+                    <option value="Journal">Journal Voucher</option>
+                    <option value="Purchase">Purchase Voucher</option>
+                    <option value="Sales">Sales Voucher</option>
+                    <option value="Debit Note">Debit Note</option>
+                    <option value="Credit Note">Credit Note</option>
+                    <option value="Payroll">Payroll Voucher</option>
+                    <option value="Opening Balance">Opening Balance Voucher</option>
+                    <option value="Fixed Asset">Fixed Asset Voucher</option>
+                    <option value="Depreciation">Depreciation Voucher</option>
+                    <option value="Adjustment">Adjustment Voucher</option>
                   </select>
                 </div>
 
@@ -440,8 +579,8 @@ export const VouchersPage: React.FC = () => {
                   </label>
                   <input
                     type="date"
-                    value={newVoucherDate}
-                    onChange={(e) => setNewVoucherDate(e.target.value)}
+                    value={voucherDate}
+                    onChange={(e) => setVoucherDate(e.target.value)}
                     className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-semibold text-slate-900 dark:text-white"
                     required
                   />
@@ -453,9 +592,9 @@ export const VouchersPage: React.FC = () => {
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. Vendor payment for invoice #1029"
-                    value={newNarration}
-                    onChange={(e) => setNewNarration(e.target.value)}
+                    placeholder="e.g. Monthly office rent payment"
+                    value={narration}
+                    onChange={(e) => setNarration(e.target.value)}
                     className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white"
                     required
                   />
@@ -470,8 +609,8 @@ export const VouchersPage: React.FC = () => {
                       <th className="px-4 py-2.5">#</th>
                       <th className="px-4 py-2.5">Ledger Account</th>
                       <th className="px-4 py-2.5">Party (Optional)</th>
-                      <th className="px-4 py-2.5 text-right w-36">Debit Amount (₹)</th>
-                      <th className="px-4 py-2.5 text-right w-36">Credit Amount (₹)</th>
+                      <th className="px-4 py-2.5 text-right w-36 text-emerald-600">Debit Amount (₹)</th>
+                      <th className="px-4 py-2.5 text-right w-36 text-blue-600">Credit Amount (₹)</th>
                       <th className="px-4 py-2.5 w-12"></th>
                     </tr>
                   </thead>
@@ -552,10 +691,10 @@ export const VouchersPage: React.FC = () => {
                   onClick={handleAddLine}
                   className="px-3 py-1.5 text-xs font-semibold text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-lg transition-colors cursor-pointer"
                 >
-                  + Add Voucher Line
+                  + Add Line Item
                 </button>
 
-                {/* Double-Entry Balancing Card */}
+                {/* Double-Entry Balancing Card (HLA 7.1) */}
                 <div className={`flex items-center gap-6 px-4 py-2.5 rounded-xl border font-mono text-sm ${isBalanced
                     ? 'bg-emerald-50 text-emerald-900 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
                     : 'bg-red-50 text-red-900 border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-800'
@@ -592,15 +731,17 @@ export const VouchersPage: React.FC = () => {
               )}
 
               <div className="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-slate-800">
-                <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={newAutoPost}
-                    onChange={(e) => setNewAutoPost(e.target.checked)}
-                    className="rounded text-blue-600 focus:ring-blue-500"
-                  />
-                  <span>Post immediately to General Ledger</span>
-                </label>
+                {!editingVoucherId ? (
+                  <label className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={autoPost}
+                      onChange={(e) => setAutoPost(e.target.checked)}
+                      className="rounded text-blue-600 focus:ring-blue-500"
+                    />
+                    <span>Post immediately to General Ledger</span>
+                  </label>
+                ) : <div />}
 
                 <div className="flex items-center gap-3">
                   <button
@@ -615,7 +756,7 @@ export const VouchersPage: React.FC = () => {
                     disabled={isSubmitting || !isBalanced}
                     className="px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg font-semibold text-sm shadow-sm transition-all cursor-pointer"
                   >
-                    {isSubmitting ? 'Saving...' : 'Save & Record Voucher'}
+                    {isSubmitting ? 'Saving...' : (editingVoucherId ? 'Save Changes' : 'Record Voucher')}
                   </button>
                 </div>
               </div>
@@ -624,39 +765,118 @@ export const VouchersPage: React.FC = () => {
         </div>
       )}
 
-      {/* DETAIL MODAL */}
+      {/* ======================================================== */}
+      {/* REVERSAL CONFIRMATION MODAL (HLA Part 7.5) */}
+      {/* ======================================================== */}
+      {showReverseModal && activeVoucher && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden p-6 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 rounded-full bg-rose-100 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                  Controlled Voucher Reversal
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  Reversing voucher <span className="font-mono font-bold text-slate-700 dark:text-slate-300">{activeVoucher.voucher_number}</span> (₹{Number(activeVoucher.total_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}).
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg text-xs text-amber-800 dark:text-amber-300 leading-relaxed">
+              Per <strong>HLA Section 7.5</strong>, posted transactions are immutable and never silently deleted. A reverse entry with opposite debits and credits will be generated and posted to the General Ledger, preserving full audit history.
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                Reversal Reason (Required)
+              </label>
+              <textarea
+                rows={3}
+                value={reversalReason}
+                onChange={(e) => setReversalReason(e.target.value)}
+                placeholder="State the reason (e.g. Incorrect ledger applied, duplicate entry, invoice cancelled)..."
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-rose-500/20"
+              />
+            </div>
+
+            {reverseError && (
+              <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-700">
+                {reverseError}
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowReverseModal(false)}
+                className="px-4 py-2 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-lg font-semibold text-sm hover:bg-slate-50 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmReverse}
+                disabled={isReversing || !reversalReason.trim()}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-lg font-semibold text-sm cursor-pointer transition-colors shadow-xs"
+              >
+                {isReversing ? 'Reversing...' : 'Confirm Reversal'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* VOUCHER DETAIL MODAL */}
+      {/* ======================================================== */}
       {showDetailModal && activeVoucher && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-2xl w-full border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
               <div>
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                  Voucher: {activeVoucher.voucher_number}
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <span>Voucher: {activeVoucher.voucher_number}</span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                    activeVoucher.status === 'POSTED' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                    activeVoucher.status === 'REVERSED' ? 'bg-rose-50 text-rose-700 border border-rose-200' :
+                    'bg-slate-100 text-slate-700'
+                  }`}>
+                    {activeVoucher.status}
+                  </span>
                 </h3>
-                <p className="text-xs text-slate-500">
-                  {activeVoucher.voucher_type} Voucher on {activeVoucher.voucher_date}
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {activeVoucher.voucher_type} Voucher on {formatDate(activeVoucher.voucher_date)}
                 </p>
               </div>
               <button
                 onClick={() => setShowDetailModal(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-white"
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <p className="text-sm text-slate-700 dark:text-slate-300">
-              <span className="font-semibold">Narration:</span> {activeVoucher.narration}
+              <span className="font-semibold">Narration:</span> {activeVoucher.narration || '—'}
             </p>
+
+            {activeVoucher.reversal_reason && (
+              <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-lg text-xs text-rose-800 dark:text-rose-300">
+                <span className="font-bold">Reversal Audit:</span> {activeVoucher.reversal_reason}
+              </div>
+            )}
 
             <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
               <table className="w-full text-left text-sm">
                 <thead className="bg-slate-50 dark:bg-slate-800 text-xs font-bold uppercase text-slate-500">
                   <tr>
                     <th className="px-4 py-2">Line</th>
-                    <th className="px-4 py-2">Ledger</th>
-                    <th className="px-4 py-2 text-right">Debit (₹)</th>
-                    <th className="px-4 py-2 text-right">Credit (₹)</th>
+                    <th className="px-4 py-2">Ledger Account</th>
+                    <th className="px-4 py-2 text-right text-emerald-600">Debit (₹)</th>
+                    <th className="px-4 py-2 text-right text-blue-600">Credit (₹)</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono">

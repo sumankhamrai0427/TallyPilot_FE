@@ -39,6 +39,30 @@ export const TransactionsPage: React.FC = () => {
     loadTransactions();
   };
 
+  const formatAccountingDate = (dateVal: string | null | undefined): string => {
+    if (!dateVal) return '-';
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    if (typeof dateVal === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateVal)) {
+      const parts = dateVal.substring(0, 10).split('-');
+      const year = parts[0];
+      const monthIdx = parseInt(parts[1], 10) - 1;
+      const day = parts[2];
+      if (monthIdx >= 0 && monthIdx < 12) {
+        return `${day}-${months[monthIdx]}-${year}`;
+      }
+    }
+    try {
+      const d = new Date(dateVal);
+      if (!isNaN(d.getTime())) {
+        const day = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit' }).format(d);
+        const month = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', month: 'short' }).format(d);
+        const year = new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', year: 'numeric' }).format(d);
+        return `${day}-${month}-${year}`;
+      }
+    } catch {}
+    return String(dateVal);
+  };
+
   const statusBadge = (status: string) => {
     switch (status) {
       case 'PROCESSED':
@@ -62,9 +86,9 @@ export const TransactionsPage: React.FC = () => {
     <div className="space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white">Transaction Processing</h2>
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white">Transaction Audit Feed</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-            View, audit and manage normalized bank transactions and AI suggestions.
+            Audit trail and raw history of all ingested bank transactions and status.
           </p>
         </div>
 
@@ -121,9 +145,8 @@ export const TransactionsPage: React.FC = () => {
                 <th className="py-3 px-3 text-right">Debit (₹)</th>
                 <th className="py-3 px-3 text-right">Credit (₹)</th>
                 <th className="py-3 px-3">Suggested Ledger</th>
-                <th className="py-3 px-3">Confidence</th>
-                <th className="py-3 px-3">Status</th>
-                <th className="py-3 px-3 text-right">Action</th>
+                <th className="py-3 px-3 text-center">Confidence</th>
+                <th className="py-3 px-3 text-center">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -136,7 +159,7 @@ export const TransactionsPage: React.FC = () => {
                   return (
                     <tr key={t.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/50">
                       <td className="py-3 px-3 whitespace-nowrap text-xs font-medium text-slate-700 dark:text-slate-300">
-                        {t.transaction_date}
+                        {formatAccountingDate(t.transaction_date)}
                       </td>
                       <td className="py-3 px-3 max-w-xs">
                         <div className="font-medium text-slate-800 dark:text-slate-100 line-clamp-2">{t.narration}</div>
@@ -158,7 +181,7 @@ export const TransactionsPage: React.FC = () => {
                           {t.classification?.suggested_voucher_type || 'Payment'}
                         </div>
                       </td>
-                      <td className="py-3 px-3 whitespace-nowrap">
+                      <td className="py-3 px-3 text-center whitespace-nowrap">
                         {confidence ? (
                           <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${
                             Number(confidence) >= 80 
@@ -171,33 +194,15 @@ export const TransactionsPage: React.FC = () => {
                           <span className="text-xs text-slate-400">--</span>
                         )}
                       </td>
-                      <td className="py-3 px-3 whitespace-nowrap">
+                      <td className="py-3 px-3 text-center whitespace-nowrap">
                         {statusBadge(t.status)}
-                      </td>
-                      <td className="py-3 px-3 text-right whitespace-nowrap">
-                        {t.status === 'NEEDS_CLARIFICATION' && (
-                          <a
-                            href="/clarification"
-                            className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded text-xs font-semibold shadow-xs"
-                          >
-                            Clarify
-                          </a>
-                        )}
-                        {t.status === 'PENDING_APPROVAL' && (
-                          <a
-                            href="/approvals"
-                            className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-semibold shadow-xs"
-                          >
-                            Approve
-                          </a>
-                        )}
                       </td>
                     </tr>
                   );
                 })
               ) : (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-400 dark:text-slate-500 text-sm">
+                  <td colSpan={7} className="py-12 text-center text-slate-400 dark:text-slate-500 text-sm">
                     {loading ? "Loading transactions..." : "No transactions found matching criteria."}
                   </td>
                 </tr>

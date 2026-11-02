@@ -43,7 +43,7 @@ export const AIAssistantPage: React.FC = () => {
       {
         id: 0,
         sender: 'ASSISTANT',
-        content: 'Hello! I am your local AI Accounting Assistant running entirely on your Windows PC. How can I help you with your books, vouchers, or reports today?',
+        content: 'Hello! I am your Accounting Assistant. How can I assist you with your books, vouchers, or reports today?',
         created_at: new Date().toISOString()
       }
     ]);
@@ -120,7 +120,7 @@ export const AIAssistantPage: React.FC = () => {
         <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-2 font-bold text-sm text-slate-900 dark:text-white">
             <Bot className="w-4 h-4 text-blue-600" />
-            <span>AI Sessions</span>
+            <span>Conversations</span>
           </div>
           <button
             onClick={startNewSession}
@@ -163,12 +163,12 @@ export const AIAssistantPage: React.FC = () => {
             </div>
             <div>
               <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                Local AI Accounting Assistant
+                Accounting Assistant
                 <span className="text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 px-2 py-0.5 rounded-full font-bold">
-                  100% Local Inference
+                  Ready
                 </span>
               </h2>
-              <p className="text-xs text-slate-400">Natural language double-entry commands & instant reporting (HLA Part 12)</p>
+              <p className="text-xs text-slate-400">Natural language double-entry commands & instant reporting</p>
             </div>
           </div>
         </div>

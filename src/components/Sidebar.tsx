@@ -7,11 +7,11 @@ import {
   CheckCircle2,
   BookOpen,
   Network,
+  Building2,
   Scale,
   BarChart3,
   Settings as SettingsIcon,
   Compass,
-  Building2
 } from 'lucide-react';
 import { DashboardSummary } from '../types';
 
@@ -24,22 +24,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ summary }) => {
 
   const navItems = [
     { label: 'Dashboard', path: '/', icon: LayoutDashboard },
-    {
-      label: 'AI Assistant',
-      path: '/assistant',
-      icon: Bot,
-      badge: 'Local AI',
-      badgeColor: 'bg-emerald-500/90 text-white'
-    },
+    { label: 'Assistant', path: '/assistant', icon: Bot },
     { label: 'Documents Hub', path: '/documents', icon: FolderOpen },
     {
-      label: 'Transaction Review',
+      label: 'Pending Approval',
       path: '/review',
       icon: CheckCircle2,
       badge: pendingReviewCount > 0 ? pendingReviewCount : undefined,
       badgeColor: 'bg-blue-600 text-white'
     },
-    { label: 'Vouchers & Day Book', path: '/vouchers', icon: BookOpen },
+    { label: 'Vouchers', path: '/vouchers', icon: BookOpen },
     { label: 'Chart of Accounts', path: '/chart-of-accounts', icon: Network },
     { label: 'Company & FY Master', path: '/company-master', icon: Building2 },
     { label: 'Bank Reconciliation', path: '/reconciliation', icon: Scale },
@@ -60,12 +54,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ summary }) => {
             <span className="text-amber-400">Pilot</span>
           </h1>
           <p className="text-[10px] text-slate-400 font-medium mt-1 truncate tracking-wide">
-            HLA Local AI Accounting
+            Automated Accounting
           </p>
         </div>
       </div>
 
-      {/* Clean HLA Nav List */}
+      {/* Nav List */}
       <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
         <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
           Accounting Modules
@@ -100,8 +94,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ summary }) => {
       {/* Footer Info */}
       <div className="p-4 border-t border-slate-200 dark:border-slate-800 text-xs text-slate-400 dark:text-slate-500 flex-shrink-0">
         <div className="flex items-center justify-between">
-          <span className="font-semibold">HLA v1.0 Compliant</span>
-          <span className="text-emerald-600 dark:text-emerald-400 font-bold">Double-Entry</span>
+          <span className="font-semibold">Double-Entry Core</span>
+          <span className="text-emerald-600 dark:text-emerald-400 font-bold">Standard</span>
         </div>
       </div>
     </aside>

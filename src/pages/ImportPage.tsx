@@ -288,7 +288,7 @@ export const ImportPage: React.FC = () => {
                 <div className="flex flex-col items-center justify-center py-3 text-blue-600 dark:text-blue-400 gap-2">
                   <i className="pi pi-spin pi-spinner" style={{ fontSize: '2rem' }}></i>
                   <span className="text-sm font-semibold animate-pulse">
-                    Parsing & Ingesting {selectedFiles.length} statement(s) with Local AI...
+                    Parsing & Ingesting {selectedFiles.length} statement(s) ...
                   </span>
                 </div>
               ) : (

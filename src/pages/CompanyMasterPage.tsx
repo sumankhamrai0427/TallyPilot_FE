@@ -218,7 +218,7 @@ export const CompanyMasterPage: React.FC = () => {
             <span>Company Master & Accounting Years</span>
           </h2>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Manage multi-company profiles, Tally Prime live connection credentials, and financial year audit locking controls (HLA Part 5).
+            Manage multi-company profiles, Tally Prime live connection credentials, and financial year audit locking controls.
           </p>
         </div>
 
@@ -553,7 +553,7 @@ export const CompanyMasterPage: React.FC = () => {
             <div>
               <h3 className="text-base font-bold text-slate-800 dark:text-white">Accounting Years & Closing Controls</h3>
               <p className="text-xs text-slate-400">
-                Manage financial periods, set active financial year, and lock closed years to prevent retrospective edits (HLA Part 5.2).
+                Manage financial periods, set active financial year, and lock closed years to prevent retrospective edits.
               </p>
             </div>
             <button

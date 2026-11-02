@@ -1,18 +1,19 @@
 import React, { useState } from 'react';
 import { 
   CheckCircle2, HelpCircle, FileSpreadsheet, 
-  Sparkles, Filter, RefreshCw 
+  BookOpen, Sparkles, Filter, RefreshCw 
 } from 'lucide-react';
-import { ApprovalQueuePage } from './ApprovalQueuePage';
+import { VoucherReviewTable } from '../components/VoucherReviewTable';
 import { ClarificationQueuePage } from './ClarificationQueuePage';
 import { TransactionsPage } from './TransactionsPage';
 
 interface TransactionReviewPageProps {
-  initialTab?: 'approvals' | 'clarification' | 'all';
+  initialTab?: 'review' | 'approvals' | 'clarification' | 'all';
 }
 
-export const TransactionReviewPage: React.FC<TransactionReviewPageProps> = ({ initialTab = 'approvals' }) => {
-  const [activeTab, setActiveTab] = useState<'approvals' | 'clarification' | 'all'>(initialTab);
+export const TransactionReviewPage: React.FC<TransactionReviewPageProps> = ({ initialTab = 'review' }) => {
+  const normalizedTab = initialTab === 'approvals' ? 'review' : initialTab;
+  const [activeTab, setActiveTab] = useState<'review' | 'clarification' | 'all'>(normalizedTab);
 
   return (
     <div className="space-y-4">
@@ -20,15 +21,15 @@ export const TransactionReviewPage: React.FC<TransactionReviewPageProps> = ({ in
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-2 flex items-center justify-between shadow-xs">
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setActiveTab('approvals')}
+            onClick={() => setActiveTab('review')}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
-              activeTab === 'approvals'
+              activeTab === 'review'
                 ? 'bg-blue-600 text-white shadow-xs'
                 : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
             }`}
           >
-            <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-            <span>Approval Queue</span>
+            <BookOpen className="w-4 h-4 text-emerald-300" />
+            <span>Proposed Vouchers</span>
           </button>
 
           <button
@@ -59,11 +60,10 @@ export const TransactionReviewPage: React.FC<TransactionReviewPageProps> = ({ in
 
       {/* Render Active View */}
       <div>
-        {activeTab === 'approvals' && <ApprovalQueuePage />}
+        {activeTab === 'review' && <VoucherReviewTable />}
         {activeTab === 'clarification' && <ClarificationQueuePage />}
         {activeTab === 'all' && <TransactionsPage />}
       </div>
     </div>
   );
 };
-

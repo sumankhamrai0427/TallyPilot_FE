@@ -37,13 +37,42 @@ export interface BankTransaction {
   debit_amount: string | number;
   credit_amount: string | number;
   balance: string | number | null;
-  status: 'RECEIVED' | 'PARSED' | 'CLASSIFIED' | 'NEEDS_CLARIFICATION' | 'VALIDATED' | 'PENDING_APPROVAL' | 'APPROVED' | 'SUBMITTING' | 'PROCESSED' | 'FAILED' | 'SKIPPED';
+  status: 'RECEIVED' | 'PARSED' | 'CLASSIFIED' | 'NEEDS_CLARIFICATION' | 'VALIDATED' | 'PENDING_APPROVAL' | 'APPROVED' | 'SUBMITTING' | 'PROCESSED' | 'FAILED' | 'SKIPPED' | 'REJECTED' | 'HOLD';
   requires_review: boolean;
   is_skipped: boolean;
+  is_duplicate?: boolean;
+  matched_voucher_id?: number | null;
+  clearance_date?: string | null;
+  reconciliation_status?: string;
   skip_reason: string | null;
+  rejection_reason?: string | null;
   created_at: string;
   classification?: TransactionClassification;
   reviews?: HumanReview[];
+}
+
+export interface TransactionSource {
+  transaction_id: number;
+  source_document: {
+    batch_id: string;
+    filename: string;
+    file_path: string | null;
+    file_hash: string | null;
+    file_size_bytes: number;
+    source_row_index: number;
+    imported_at: string | null;
+  };
+  raw_bank_entry: {
+    bank_reference: string | null;
+    cheque_number: string | null;
+    transaction_date: string;
+    value_date: string | null;
+    raw_narration: string;
+    debit_amount: number;
+    credit_amount: number;
+    balance: number | null;
+    raw_payload?: any;
+  };
 }
 
 export interface ImportBatch {
@@ -80,6 +109,21 @@ export interface AuditLog {
 }
 
 export interface DashboardSummary {
+  // HLA 9.5 Financial Metrics
+  total_income: number;
+  total_expenditure: number;
+  current_profit_loss: number;
+  cash_balance: number;
+  bank_balance: number;
+  outstanding_receivables: number;
+  outstanding_payables: number;
+
+  // HLA 9.5 Operational & Document Metrics
+  pending_vouchers: number;
+  unprocessed_documents: number;
+  documents_requiring_attention: number;
+
+  // Pipeline Metrics
   total_transactions: number;
   processed_transactions: number;
   clarification_queue_count: number;
@@ -170,17 +214,36 @@ export interface VoucherLineItem {
   narration?: string;
 }
 
+export type VoucherType =
+  | 'Payment'
+  | 'Receipt'
+  | 'Contra'
+  | 'Journal'
+  | 'Sales'
+  | 'Purchase'
+  | 'Debit Note'
+  | 'Credit Note'
+  | 'Payroll'
+  | 'Opening Balance'
+  | 'Fixed Asset'
+  | 'Depreciation'
+  | 'Adjustment';
+
 export interface Voucher {
   id: number;
   company_id: number;
   fy_id: number;
   voucher_number: string;
-  voucher_type: 'Payment' | 'Receipt' | 'Contra' | 'Journal' | 'Sales' | 'Purchase';
+  voucher_type: VoucherType | string;
   voucher_date: string;
   total_amount: number;
   narration: string;
   bank_transaction_id?: number | null;
-  status: 'DRAFT' | 'APPROVED' | 'POSTED' | 'REVERSED' | 'CANCELLED';
+  source_document_id?: number | null;
+  status: 'DRAFT' | 'APPROVED' | 'POSTED' | 'REVERSED' | 'CANCELLED' | string;
+  reversal_voucher_id?: number | null;
+  reversal_of_id?: number | null;
+  reversal_reason?: string | null;
   created_by: string;
   posted_at?: string | null;
   created_at?: string;
@@ -228,6 +291,69 @@ export interface ReconciliationSummary {
   unreconciled_transactions: number;
   partially_reconciled: number;
   bank_accounts: BankAccountSummary[];
+}
+
+export interface ReconMatchedItem {
+  id: number;
+  date: string;
+  clearance_date: string | null;
+  bank_reference: string | null;
+  narration: string;
+  amount: number;
+  transaction_type: string;
+  voucher_id: number | null;
+  voucher_number: string;
+  voucher_type: string | null;
+  voucher_date: string | null;
+  lag_days: number;
+}
+
+export interface ReconUnmatchedBankItem {
+  id: number;
+  date: string;
+  bank_reference: string | null;
+  narration: string;
+  amount: number;
+  transaction_type: string;
+  suggested_ledger: string | null;
+  suggested_voucher_type: string;
+  status: string;
+}
+
+export interface ReconUnmatchedBookItem {
+  voucher_id: number;
+  voucher_line_id: number;
+  voucher_number: string;
+  voucher_date: string;
+  voucher_type: string;
+  ledger_name: string;
+  amount: number;
+  nature: string;
+  narration: string;
+  age_days: number;
+}
+
+export interface ReconDuplicateItem {
+  id: number;
+  date: string;
+  bank_reference: string | null;
+  narration: string;
+  amount: number;
+  transaction_type: string;
+  flag_reason: string;
+}
+
+export interface ReconDateDiffItem {
+  id: number;
+  bank_reference: string | null;
+  narration: string;
+  amount: number;
+  transaction_type: string;
+  voucher_number: string;
+  voucher_date: string;
+  clearance_date: string;
+  lag_days: number;
+  lag_description: string;
 }
 
 
@@ -294,6 +420,7 @@ export interface BalanceSheetReport {
 }
 
 export interface DayBookItem {
+  voucher_id?: number;
   date: string;
   voucher_number: string;
   voucher_type: string;
@@ -303,7 +430,38 @@ export interface DayBookItem {
   ledger_name: string;
   debit_amount: number;
   credit_amount: number;
+  source_document?: string;
   status: string;
+}
+
+export interface LedgerReportItem {
+  id: number;
+  date: string;
+  voucher_id: number;
+  voucher_number: string;
+  voucher_type: string;
+  particulars: string;
+  debit_amount: number;
+  credit_amount: number;
+  running_balance: number;
+  balance_nature: 'DR' | 'CR';
+}
+
+export interface LedgerReportResponse {
+  ledger_id: number;
+  ledger_name: string;
+  ledger_code: string | null;
+  group_name: string;
+  group_type: string;
+  from_date: string | null;
+  to_date: string | null;
+  opening_balance: number;
+  opening_balance_nature: 'DR' | 'CR';
+  items: LedgerReportItem[];
+  total_period_debit: number;
+  total_period_credit: number;
+  closing_balance: number;
+  closing_balance_nature: 'DR' | 'CR';
 }
 
 export interface ChatSessionItem {

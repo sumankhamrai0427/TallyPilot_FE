@@ -69,7 +69,14 @@ export const api = {
     bank_transaction_id?: number;
     auto_post?: boolean;
   }) => apiClient.post<{ message: string; voucher_id: number; voucher_number: string; status: string }>('/vouchers', data).then(r => r.data),
+  updateVoucherDraft: (id: number, data: {
+    voucher_type?: string;
+    voucher_date: string;
+    narration: string;
+    lines: Array<{ ledger_id: number; party_id?: number | null; debit_amount: number; credit_amount: number; narration?: string }>;
+  }) => apiClient.put<{ message: string; voucher_id: number; voucher_number: string; status: string }>(`/vouchers/${id}`, data).then(r => r.data),
   postVoucher: (id: number) => apiClient.post<{ message: string; voucher_id: number; status: string }>(`/vouchers/${id}/post`).then(r => r.data),
+  reverseVoucher: (id: number, reason: string) => apiClient.post<{ message: string; reversal_voucher_id: number; reversal_voucher_number: string; status: string }>(`/vouchers/${id}/reverse`, { reason }).then(r => r.data),
   generateVoucherFromTx: (txId: number) => apiClient.post<{ message: string; voucher_id: number; voucher_number: string; status: string }>(`/vouchers/generate-from-transaction/${txId}`).then(r => r.data),
 
   // General Ledger & Balances
@@ -77,9 +84,13 @@ export const api = {
     apiClient.get<{ items: GeneralLedgerEntry[]; total: number; page: number; limit: number }>('/gl-entries', { params }).then(r => r.data),
   getLedgerBalances: () => apiClient.get<LedgerBalance[]>('/ledger-balances').then(r => r.data),
 
-  // Bank Reconciliation
+  // Bank Reconciliation (HLA Part 11)
   getReconSummary: () => apiClient.get<ReconciliationSummary>('/reconciliation/summary').then(r => r.data),
   getReconUnmatched: () => apiClient.get<{ bank_transactions: any[]; voucher_lines: any[] }>('/reconciliation/unmatched').then(r => r.data),
+  getReconViews: (view: 'matched' | 'unmatched_bank' | 'unmatched_books' | 'duplicates' | 'date_differences') =>
+    apiClient.get<{ items: any[]; total: number }>('/reconciliation/views', { params: { view } }).then(r => r.data),
+  runAutoReconciliation: () =>
+    apiClient.post<{ message: string; matched_count: number; duplicates_flagged: number }>('/reconciliation/auto-reconcile').then(r => r.data),
   matchReconTransaction: (transaction_id: number, voucher_line_id: number) =>
     apiClient.post<{ message: string; transaction_id: number; reconciliation_status: string }>('/reconciliation/match', { transaction_id, voucher_line_id }).then(r => r.data),
 
@@ -140,6 +151,31 @@ export const api = {
   retryTransaction: (id: number) =>
     apiClient.post<BankTransaction>(`/transactions/${id}/retry`).then(r => r.data),
 
+  // HLA 9.4 Proposed Voucher Actions
+  editTransaction: (id: number, data: {
+    transaction_date?: string;
+    narration?: string;
+    suggested_ledger?: string;
+    suggested_voucher_type?: string;
+    debit_amount?: number;
+    credit_amount?: number;
+  }) => apiClient.put<BankTransaction>(`/transactions/${id}`, data).then(r => r.data),
+
+  rejectTransaction: (id: number, reason: string) =>
+    apiClient.post<{ message: string; transaction: BankTransaction }>(`/transactions/${id}/reject`, { reason }).then(r => r.data),
+
+  holdTransaction: (id: number) =>
+    apiClient.post<{ message: string; transaction: BankTransaction }>(`/transactions/${id}/hold`).then(r => r.data),
+
+  unholdTransaction: (id: number) =>
+    apiClient.post<{ message: string; transaction: BankTransaction }>(`/transactions/${id}/unhold`).then(r => r.data),
+
+  deleteTransaction: (id: number) =>
+    apiClient.delete<{ message: string }>(`/transactions/${id}`).then(r => r.data),
+
+  getTransactionSource: (id: number) =>
+    apiClient.get<import('../types').TransactionSource>(`/transactions/${id}/source`).then(r => r.data),
+
   // Tally
   getTallyHealth: () => apiClient.get('/tally/health').then(r => r.data),
   testTallyConnection: () => apiClient.post('/tally/test-connection').then(r => r.data),
@@ -157,8 +193,10 @@ export const api = {
   updateSettings: (settings: Record<string, string>) => apiClient.put('/settings', { settings }).then(r => r.data),
 
   // Financial Reports (HLA Part 10)
-  getDayBook: (params?: { from_date?: string; to_date?: string; voucher_type?: string; ledger_id?: number }) =>
-    apiClient.get<{ items: any[]; total_count: number; total_debit: number; total_credit: number }>('/reports/day-book', { params }).then(r => r.data),
+  getDayBook: (params?: { from_date?: string; to_date?: string; voucher_type?: string; ledger_id?: number; status?: string; search?: string; debit_credit?: string }) =>
+    apiClient.get<{ items: import('../types').DayBookItem[]; total_count: number; total_debit: number; total_credit: number }>('/reports/day-book', { params }).then(r => r.data),
+  getLedgerReport: (ledgerId: number, params?: { from_date?: string; to_date?: string; voucher_type?: string }) =>
+    apiClient.get<import('../types').LedgerReportResponse>(`/reports/ledger/${ledgerId}`, { params }).then(r => r.data),
   getTrialBalance: (params?: { as_of_date?: string }) =>
     apiClient.get<any>('/reports/trial-balance', { params }).then(r => r.data),
   getProfitLoss: (params?: { from_date?: string; to_date?: string }) =>
