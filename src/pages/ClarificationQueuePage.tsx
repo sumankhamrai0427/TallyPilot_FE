@@ -161,7 +161,12 @@ export const ClarificationQueuePage: React.FC<ClarificationQueuePageProps> = ({ 
         </button>
       </div>
 
-      {items.length === 0 ? (
+      {loading ? (
+        <div className="bg-white dark:bg-slate-900 p-16 rounded-xl border border-slate-200 dark:border-slate-800 text-center shadow-xs flex flex-col items-center justify-center gap-3">
+          <i className="pi pi-spin pi-spinner text-blue-600 dark:text-blue-400" style={{ fontSize: '2rem' }}></i>
+          <span className="text-xs text-slate-400 font-medium">Loading Clarification Queue...</span>
+        </div>
+      ) : items.length === 0 ? (
         <div className="bg-white dark:bg-slate-900 p-12 rounded-xl border border-slate-200 dark:border-slate-800 text-center shadow-xs transition-colors">
           <div className="w-12 h-12 bg-emerald-50 dark:bg-emerald-950/60 rounded-full flex items-center justify-center mx-auto text-emerald-600 dark:text-emerald-400 mb-3">
             <Check className="w-6 h-6" />

@@ -289,7 +289,7 @@ export const CompanyMasterPage: React.FC = () => {
 
           {isLoadingCompanies ? (
             <div className="py-12 flex flex-col items-center justify-center text-slate-400 gap-2">
-              <i className="pi pi-spin pi-spinner text-2xl text-blue-600"></i>
+              <i className="pi pi-spin pi-spinner text-blue-600 dark:text-blue-400" style={{ fontSize: '2rem' }}></i>
               <span className="text-xs font-semibold">Loading companies from database...</span>
             </div>
           ) : (
@@ -568,7 +568,7 @@ export const CompanyMasterPage: React.FC = () => {
 
           {isLoadingFys ? (
             <div className="py-12 flex flex-col items-center justify-center text-slate-400 gap-2">
-              <i className="pi pi-spin pi-spinner text-2xl text-blue-600"></i>
+              <i className="pi pi-spin pi-spinner text-blue-600 dark:text-blue-400" style={{ fontSize: '2rem' }}></i>
               <span className="text-xs font-semibold">Loading financial years...</span>
             </div>
           ) : (

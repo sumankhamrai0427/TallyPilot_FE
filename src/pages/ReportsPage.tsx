@@ -423,7 +423,10 @@ export const ReportsPage: React.FC = () => {
 
             {/* Day Book Table */}
             {loading ? (
-              <div className="p-12 text-center text-slate-400">Loading Day Book entries...</div>
+              <div className="flex flex-col items-center justify-center p-16 text-slate-400 gap-3">
+                <i className="pi pi-spin pi-spinner text-blue-600 dark:text-blue-400" style={{ fontSize: '2rem' }}></i>
+                <span className="text-xs font-medium">Loading Day Book entries...</span>
+              </div>
             ) : !dayBookData || dayBookData.items.length === 0 ? (
               <div className="p-12 text-center text-slate-400">No Day Book entries found matching filters.</div>
             ) : (
@@ -599,7 +602,10 @@ export const ReportsPage: React.FC = () => {
 
             {/* Statement Table */}
             {loading ? (
-              <div className="p-12 text-center text-slate-400">Loading ledger report...</div>
+              <div className="flex flex-col items-center justify-center p-16 text-slate-400 gap-3">
+                <i className="pi pi-spin pi-spinner text-blue-600 dark:text-blue-400" style={{ fontSize: '2rem' }}></i>
+                <span className="text-xs font-medium">Loading ledger report...</span>
+              </div>
             ) : !reportLedgerId ? (
               <div className="p-12 text-center text-slate-400 dark:text-slate-500">
                 <BookOpen className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-600 mb-2" />

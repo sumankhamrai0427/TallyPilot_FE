@@ -82,8 +82,15 @@ export const ImportHistoryPage: React.FC = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-400 dark:text-slate-500 text-sm">
-                    {loading ? "Loading batches..." : "No import history available."}
+                  <td colSpan={8} className="py-16 text-center text-slate-400 dark:text-slate-500 text-sm">
+                    {loading ? (
+                      <div className="flex flex-col items-center justify-center gap-3">
+                        <i className="pi pi-spin pi-spinner text-blue-600 dark:text-blue-400" style={{ fontSize: '2rem' }}></i>
+                        <span className="text-xs font-medium">Loading batches...</span>
+                      </div>
+                    ) : (
+                      "No import history available."
+                    )}
                   </td>
                 </tr>
               )}

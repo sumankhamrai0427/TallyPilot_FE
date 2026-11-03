@@ -42,6 +42,8 @@ export interface BankTransaction {
   is_skipped: boolean;
   is_duplicate?: boolean;
   matched_voucher_id?: number | null;
+  voucher_number?: string | null;
+  bank_ledger_name?: string | null;
   clearance_date?: string | null;
   reconciliation_status?: string;
   skip_reason: string | null;

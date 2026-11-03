@@ -135,8 +135,15 @@ export const AuditLogsPage: React.FC = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-400 dark:text-slate-500 text-xs">
-                    {loading ? "Loading audit logs..." : "No logs available."}
+                  <td colSpan={6} className="py-16 text-center text-slate-400 dark:text-slate-500 text-xs">
+                    {loading ? (
+                      <div className="flex flex-col items-center justify-center gap-3">
+                        <i className="pi pi-spin pi-spinner text-blue-600 dark:text-blue-400" style={{ fontSize: '2rem' }}></i>
+                        <span className="text-xs font-medium">Loading audit logs...</span>
+                      </div>
+                    ) : (
+                      "No logs available."
+                    )}
                   </td>
                 </tr>
               )}

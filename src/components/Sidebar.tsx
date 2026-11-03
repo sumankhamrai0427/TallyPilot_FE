@@ -24,7 +24,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ summary }) => {
 
   const navItems = [
     { label: 'Dashboard', path: '/', icon: LayoutDashboard },
-    { label: 'Assistant', path: '/assistant', icon: Bot },
+    // { label: 'Assistant', path: '/assistant', icon: Bot },
     { label: 'Documents Hub', path: '/documents', icon: FolderOpen },
     {
       label: 'Clarification Queue',

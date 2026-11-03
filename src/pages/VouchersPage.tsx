@@ -89,14 +89,6 @@ export const VouchersPage: React.FC = () => {
 
   useEffect(() => {
     fetchVouchers();
-
-    const handleFocus = () => {
-      fetchVouchers();
-    };
-    window.addEventListener('focus', handleFocus);
-    return () => {
-      window.removeEventListener('focus', handleFocus);
-    };
   }, [activeTab, page, selectedType, selectedStatus, searchTerm]);
 
   // Double-Entry Calculations
@@ -388,8 +380,11 @@ export const VouchersPage: React.FC = () => {
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {loading ? (
                   <tr>
-                    <td colSpan={8} className="px-5 py-8 text-center text-slate-400">
-                      Loading vouchers...
+                    <td colSpan={8} className="px-5 py-16 text-center text-slate-400">
+                      <div className="flex flex-col items-center justify-center gap-3">
+                        <i className="pi pi-spin pi-spinner text-blue-600 dark:text-blue-400" style={{ fontSize: '2rem' }}></i>
+                        <span className="text-xs font-medium">Loading vouchers...</span>
+                      </div>
                     </td>
                   </tr>
                 ) : vouchers.length === 0 ? (
@@ -496,7 +491,16 @@ export const VouchersPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono">
-                {glEntries.length === 0 ? (
+                {loading ? (
+                  <tr>
+                    <td colSpan={6} className="px-5 py-16 text-center text-slate-400 font-sans">
+                      <div className="flex flex-col items-center justify-center gap-3">
+                        <i className="pi pi-spin pi-spinner text-blue-600 dark:text-blue-400" style={{ fontSize: '2rem' }}></i>
+                        <span className="text-xs font-medium">Loading General Ledger entries...</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : glEntries.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-5 py-8 text-center text-slate-400 font-sans">
                       No General Ledger postings yet. Post vouchers to see ledger entries.

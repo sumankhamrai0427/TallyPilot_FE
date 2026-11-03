@@ -253,8 +253,15 @@ export const TransactionsPage: React.FC<TransactionsPageProps> = ({ onRegisterEx
                 })
               ) : (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400 dark:text-slate-500 text-sm">
-                    {loading ? "Loading transactions..." : "No transactions found matching criteria."}
+                  <td colSpan={7} className="py-16 text-center text-slate-400 dark:text-slate-500 text-sm">
+                    {loading ? (
+                      <div className="flex flex-col items-center justify-center gap-3">
+                        <i className="pi pi-spin pi-spinner text-blue-600 dark:text-blue-400" style={{ fontSize: '2rem' }}></i>
+                        <span className="text-xs font-medium">Loading transactions...</span>
+                      </div>
+                    ) : (
+                      "No transactions found matching criteria."
+                    )}
                   </td>
                 </tr>
               )}

@@ -229,8 +229,9 @@ export const ChartOfAccountsPage: React.FC = () => {
       {/* Tree View Container */}
       <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-6 shadow-xs">
         {loading ? (
-          <div className="text-center py-12 text-slate-400">
-            Loading Chart of Accounts tree...
+          <div className="flex flex-col items-center justify-center py-16 text-slate-400 gap-3">
+            <i className="pi pi-spin pi-spinner text-blue-600 dark:text-blue-400" style={{ fontSize: '2rem' }}></i>
+            <span className="text-xs font-medium">Loading Chart of Accounts tree...</span>
           </div>
         ) : treeData.length === 0 ? (
           <div className="text-center py-12 text-slate-400">

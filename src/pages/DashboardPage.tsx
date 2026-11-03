@@ -84,6 +84,15 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ summary: propSumma
 
   const isNetProfit = (Number(summary?.current_profit_loss) || 0) >= 0;
 
+  if (loading || !summary) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] text-slate-400 gap-3">
+        <i className="pi pi-spin pi-spinner text-blue-600 dark:text-blue-400" style={{ fontSize: '2rem' }}></i>
+        <span className="text-xs font-medium">Loading Dashboard overview...</span>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       {/* Top Banner */}

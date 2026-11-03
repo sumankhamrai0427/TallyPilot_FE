@@ -26,17 +26,6 @@ export const TransactionReviewPage: React.FC<TransactionReviewPageProps> = ({ in
     setRefreshKey(k => k + 1);
   }, [normalizedTab]);
 
-  // Auto-refresh when user switches back to this browser tab
-  useEffect(() => {
-    const handleFocus = () => {
-      setRefreshKey(k => k + 1);
-    };
-    window.addEventListener('focus', handleFocus);
-    return () => {
-      window.removeEventListener('focus', handleFocus);
-    };
-  }, []);
-
   const handleTabChange = (tab: 'clarification' | 'all') => {
     setActiveTab(tab);
     setRefreshKey(k => k + 1);

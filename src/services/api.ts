@@ -109,10 +109,14 @@ export const api = {
     const formData = new FormData();
     files.forEach(f => formData.append('files', f));
     return apiClient.post<{
+      success?: boolean;
+      is_duplicate?: boolean;
+      detail?: string;
       batches: ImportBatch[];
       total_files: number;
       successful_count: number;
-      failed_files: { filename: string; error: string }[];
+      failed_files: { filename: string; error: string; is_duplicate?: boolean }[];
+      has_duplicates?: boolean;
     }>('/files/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     }).then(r => r.data);

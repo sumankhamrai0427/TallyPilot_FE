@@ -69,14 +69,6 @@ export const ReconciliationPage: React.FC = () => {
 
   useEffect(() => {
     loadReconData();
-
-    const handleFocus = () => {
-      loadReconData();
-    };
-    window.addEventListener('focus', handleFocus);
-    return () => {
-      window.removeEventListener('focus', handleFocus);
-    };
   }, [activeTab]);
 
   const handleRunAutoReconcile = async () => {
@@ -322,7 +314,14 @@ export const ReconciliationPage: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono">
                   {loading ? (
-                    <tr><td colSpan={8} className="p-8 text-center text-slate-400 font-sans">Loading matched transactions...</td></tr>
+                    <tr>
+                      <td colSpan={8} className="p-16 text-center text-slate-400 font-sans">
+                        <div className="flex flex-col items-center justify-center gap-3">
+                          <i className="pi pi-spin pi-spinner text-blue-600 dark:text-blue-400" style={{ fontSize: '2rem' }}></i>
+                          <span className="text-xs font-medium">Loading matched transactions...</span>
+                        </div>
+                      </td>
+                    </tr>
                   ) : matchedItems.length === 0 ? (
                     <tr><td colSpan={8} className="p-8 text-center text-slate-400 font-sans">No matched transactions yet. Click "Auto-Reconcile with Books" or use the Manual Matching Studio.</td></tr>
                   ) : (
@@ -383,7 +382,14 @@ export const ReconciliationPage: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono">
                   {loading ? (
-                    <tr><td colSpan={7} className="p-8 text-center text-slate-400 font-sans">Loading unmatched bank entries...</td></tr>
+                    <tr>
+                      <td colSpan={7} className="p-16 text-center text-slate-400 font-sans">
+                        <div className="flex flex-col items-center justify-center gap-3">
+                          <i className="pi pi-spin pi-spinner text-blue-600 dark:text-blue-400" style={{ fontSize: '2rem' }}></i>
+                          <span className="text-xs font-medium">Loading unmatched bank entries...</span>
+                        </div>
+                      </td>
+                    </tr>
                   ) : unmatchedBankItems.length === 0 ? (
                     <tr><td colSpan={7} className="p-8 text-center text-slate-400 font-sans">All bank entries are accounted for!</td></tr>
                   ) : (
@@ -458,7 +464,14 @@ export const ReconciliationPage: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono">
                   {loading ? (
-                    <tr><td colSpan={8} className="p-8 text-center text-slate-400 font-sans">Loading unmatched book vouchers...</td></tr>
+                    <tr>
+                      <td colSpan={8} className="p-16 text-center text-slate-400 font-sans">
+                        <div className="flex flex-col items-center justify-center gap-3">
+                          <i className="pi pi-spin pi-spinner text-blue-600 dark:text-blue-400" style={{ fontSize: '2rem' }}></i>
+                          <span className="text-xs font-medium">Loading unmatched book vouchers...</span>
+                        </div>
+                      </td>
+                    </tr>
                   ) : unmatchedBookItems.length === 0 ? (
                     <tr><td colSpan={8} className="p-8 text-center text-slate-400 font-sans">No open book vouchers pending clearance.</td></tr>
                   ) : (
@@ -523,7 +536,14 @@ export const ReconciliationPage: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono">
                   {loading ? (
-                    <tr><td colSpan={6} className="p-8 text-center text-slate-400 font-sans">Loading duplicate check...</td></tr>
+                    <tr>
+                      <td colSpan={6} className="p-16 text-center text-slate-400 font-sans">
+                        <div className="flex flex-col items-center justify-center gap-3">
+                          <i className="pi pi-spin pi-spinner text-blue-600 dark:text-blue-400" style={{ fontSize: '2rem' }}></i>
+                          <span className="text-xs font-medium">Loading duplicate check...</span>
+                        </div>
+                      </td>
+                    </tr>
                   ) : duplicateItems.length === 0 ? (
                     <tr><td colSpan={6} className="p-8 text-center text-slate-400 font-sans">No duplicate transactions detected. Clean statement feed!</td></tr>
                   ) : (
@@ -577,7 +597,14 @@ export const ReconciliationPage: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-mono">
                   {loading ? (
-                    <tr><td colSpan={6} className="p-8 text-center text-slate-400 font-sans">Loading date differences...</td></tr>
+                    <tr>
+                      <td colSpan={6} className="p-16 text-center text-slate-400 font-sans">
+                        <div className="flex flex-col items-center justify-center gap-3">
+                          <i className="pi pi-spin pi-spinner text-blue-600 dark:text-blue-400" style={{ fontSize: '2rem' }}></i>
+                          <span className="text-xs font-medium">Loading date differences...</span>
+                        </div>
+                      </td>
+                    </tr>
                   ) : dateDiffItems.length === 0 ? (
                     <tr><td colSpan={6} className="p-8 text-center text-slate-400 font-sans">No clearing date differences found. All items cleared on entry date!</td></tr>
                   ) : (
