@@ -88,6 +88,14 @@ export const VouchersPage: React.FC = () => {
 
   useEffect(() => {
     fetchVouchers();
+
+    const handleFocus = () => {
+      fetchVouchers();
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [activeTab, page, selectedType, selectedStatus, searchTerm]);
 
   // Double-Entry Calculations

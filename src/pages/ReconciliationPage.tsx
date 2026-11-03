@@ -3,7 +3,7 @@ import {
   Scale, CheckCircle2, AlertCircle, RefreshCw,
   ArrowRight, Link2, Sparkles, Building, Landmark,
   Check, ArrowUpRight, ArrowDownLeft, Clock, Copy,
-  Calendar, Layers, Filter, CheckCheck
+  Calendar, Layers, Filter, CheckCheck, Loader2
 } from 'lucide-react';
 import { api } from '../services/api';
 import {
@@ -16,6 +16,7 @@ export const ReconciliationPage: React.FC = () => {
   const [summary, setSummary] = useState<ReconciliationSummary | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [autoReconciling, setAutoReconciling] = useState<boolean>(false);
+  const [generatingTxId, setGeneratingTxId] = useState<number | null>(null);
   const [successMessage, setSuccessMessage] = useState<string>('');
 
   // Tab Data States
@@ -68,6 +69,14 @@ export const ReconciliationPage: React.FC = () => {
 
   useEffect(() => {
     loadReconData();
+
+    const handleFocus = () => {
+      loadReconData();
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [activeTab]);
 
   const handleRunAutoReconcile = async () => {
@@ -102,13 +111,16 @@ export const ReconciliationPage: React.FC = () => {
   };
 
   const handleAutoGenerateVoucher = async (txId: number) => {
+    setGeneratingTxId(txId);
     try {
       const res = await api.generateVoucherFromTx(txId);
       setSuccessMessage(res.message);
       setTimeout(() => setSuccessMessage(''), 4000);
-      loadReconData();
+      await loadReconData();
     } catch (err: any) {
       alert(err.response?.data?.detail || 'Failed to generate voucher');
+    } finally {
+      setGeneratingTxId(null);
     }
   };
 
@@ -401,9 +413,19 @@ export const ReconciliationPage: React.FC = () => {
                         <td className="px-4 py-2.5 text-right font-sans whitespace-nowrap">
                           <button
                             onClick={() => handleAutoGenerateVoucher(item.id)}
-                            className="px-2.5 py-1 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors cursor-pointer flex items-center gap-1.5 ml-auto shadow-xs"
+                            disabled={generatingTxId !== null}
+                            className="px-2.5 py-1 text-xs font-semibold bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed text-white rounded transition-colors cursor-pointer flex items-center gap-1.5 ml-auto shadow-xs"
                           >
-                            Generate Voucher
+                            {generatingTxId === item.id ? (
+                              <>
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                <span>Generating...</span>
+                              </>
+                            ) : (
+                              <>
+                                <span>Generate Voucher</span>
+                              </>
+                            )}
                           </button>
                         </td>
                       </tr>

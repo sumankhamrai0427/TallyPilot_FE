@@ -39,6 +39,9 @@ export const ImportPage: React.FC = () => {
       setIsLoadingBatches(true);
       const data = await api.getBatches();
       setBatches(data || []);
+      if (data && data.length > 0) {
+        setErrorMessage(null);
+      }
     } catch (err: any) {
       console.error("Failed to load batches from database:", err);
     } finally {
@@ -48,7 +51,27 @@ export const ImportPage: React.FC = () => {
 
   useEffect(() => {
     loadBatches();
-  }, []);
+
+    // Auto-refresh when user switches back to this browser tab
+    const handleFocus = () => {
+      loadBatches();
+    };
+    window.addEventListener('focus', handleFocus);
+
+    // Auto-poll batches every 6 seconds so background watcher statements appear automatically
+    const pollInterval = setInterval(() => {
+      if (!isUploading && !isScanning) {
+        api.getBatches().then(data => {
+          if (data) setBatches(data);
+        }).catch(() => {});
+      }
+    }, 6000);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      clearInterval(pollInterval);
+    };
+  }, [isUploading, isScanning]);
 
   const formatFileSize = (bytes: number): string => {
     if (bytes < 1024) return `${bytes} B`;
@@ -334,11 +357,20 @@ export const ImportPage: React.FC = () => {
 
       {/* Error alert */}
       {errorMessage && (
-        <div className="p-4 rounded-lg bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-300 flex items-start gap-3 text-sm">
-          <AlertCircle className="w-5 h-5 text-rose-600 dark:text-rose-400 flex-shrink-0 mt-0.5" />
-          <div>
-            <span className="font-semibold">Notice:</span> {errorMessage}
+        <div className="p-4 rounded-lg bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-300 flex items-center justify-between gap-3 text-sm">
+          <div className="flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-rose-600 dark:text-rose-400 flex-shrink-0" />
+            <div>
+              <span className="font-semibold">Notice:</span> {errorMessage}
+            </div>
           </div>
+          <button
+            onClick={() => setErrorMessage(null)}
+            className="text-rose-500 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-200 p-1 cursor-pointer"
+            title="Dismiss notice"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
 

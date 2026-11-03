@@ -15,6 +15,7 @@ import {
   RefreshCw,
   X,
   Check,
+  CheckCheck,
   ShieldCheck,
   FileSpreadsheet,
   Layers,
@@ -23,7 +24,11 @@ import {
 import { api } from '../services/api';
 import { BankTransaction, TransactionSource, LedgerItem } from '../types';
 
-export const VoucherReviewTable: React.FC = () => {
+interface VoucherReviewTableProps {
+  onRegisterExport?: (exporter: () => void) => void;
+}
+
+export const VoucherReviewTable: React.FC<VoucherReviewTableProps> = ({ onRegisterExport }) => {
   const [items, setItems] = useState<BankTransaction[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [statusFilter, setStatusFilter] = useState<string>('');
@@ -178,6 +183,59 @@ export const VoucherReviewTable: React.FC = () => {
       return true;
     });
   }, [items, search, statusFilter, typeFilter]);
+
+  // Register filter-accurate CSV exporter matching UI 1:1
+  useEffect(() => {
+    if (onRegisterExport) {
+      onRegisterExport(() => {
+        const headers = [
+          'Voucher #',
+          'Date',
+          'Type',
+          'Ledger Account',
+          'Debit (₹)',
+          'Credit (₹)',
+          'Narration',
+          'Source',
+          'Match',
+          'Status'
+        ];
+        const rows = filteredItems.map(tx => {
+          const vNum = `PROP-${tx.id.toString().padStart(4, '0')}`;
+          const vType = (tx.classification?.suggested_voucher_type || (Number(tx.debit_amount) > 0 ? 'PAYMENT' : 'RECEIPT')).toUpperCase();
+          const ledgerName = tx.classification?.suggested_ledger || (Number(tx.debit_amount) > 0 ? 'Bank Charges / Expense' : 'Suspense / Income');
+          const debit = Number(tx.debit_amount || 0);
+          const credit = Number(tx.credit_amount || 0);
+          const match = tx.classification ? `${Math.round(Number(tx.classification.confidence) * 100)}%` : '85%';
+          const statusStr = tx.status === 'PROCESSED' ? 'Posted in Tally' : tx.status === 'PENDING_APPROVAL' ? 'Pending Approval' : tx.status === 'HOLD' ? 'On Hold' : tx.status === 'REJECTED' ? 'Rejected' : 'Needs Review';
+
+          return [
+            vNum,
+            `"${formatAccountingDate(tx.transaction_date)}"`,
+            `"${vType}"`,
+            `"${ledgerName.replace(/"/g, '""')}"`,
+            debit > 0 ? `"${debit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}"` : `"-"`,
+            credit > 0 ? `"${credit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}"` : `"-"`,
+            `"${(tx.narration || '').replace(/"/g, '""')}"`,
+            `"Row #${tx.source_row_index}"`,
+            `"${match}"`,
+            `"${statusStr}"`
+          ];
+        });
+
+        const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
+        const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `Proposed_Vouchers_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      });
+    }
+  }, [onRegisterExport, filteredItems]);
 
   // Actions
   // 1. Approve & Post
@@ -338,7 +396,7 @@ export const VoucherReviewTable: React.FC = () => {
               className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-2 shadow-xs cursor-pointer"
             >
               <ShieldCheck className="w-4 h-4" />
-              <span>Authorize & Post Selected ({selectedIds.length})</span>
+              <span>Approve Selected ({selectedIds.length})</span>
             </button>
           )}
 
@@ -607,15 +665,14 @@ export const VoucherReviewTable: React.FC = () => {
                       {/* Available Actions */}
                       <td className="py-3 px-4 text-center whitespace-nowrap">
                         <div className="inline-flex items-center justify-center gap-1.5">
-                          {/* Post Action */}
+                          {/* Approve & Post Action: Bold Single Checkmark Icon without text */}
                           {tx.status !== 'PROCESSED' && tx.status !== 'REJECTED' && (
                             <button
                               onClick={() => handlePost(tx.id)}
-                              className="h-7 px-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-lg text-[11px] font-bold transition-all duration-150 cursor-pointer flex items-center gap-1.5 shadow-xs hover:shadow"
-                              title="Post directly to Tally Prime & General Ledger"
+                              className="w-7 h-7 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-lg transition-all duration-150 cursor-pointer flex items-center justify-center shadow-xs hover:shadow hover:scale-105"
+                              title="Approve & Post directly to Tally Prime & Books"
                             >
-                              <Send className="w-3 h-3" />
-                              <span>Post</span>
+                              <Check className="w-4 h-4 text-white" strokeWidth={3} />
                             </button>
                           )}
 

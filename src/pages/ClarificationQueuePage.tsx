@@ -3,7 +3,11 @@ import { HelpCircle, Check, X, AlertTriangle, ArrowRight, RefreshCw } from 'luci
 import { api } from '../services/api';
 import { BankTransaction, TallyLedger } from '../types';
 
-export const ClarificationQueuePage: React.FC = () => {
+interface ClarificationQueuePageProps {
+  onRegisterExport?: (exporter: () => void) => void;
+}
+
+export const ClarificationQueuePage: React.FC<ClarificationQueuePageProps> = ({ onRegisterExport }) => {
   const [items, setItems] = useState<BankTransaction[]>([]);
   const [ledgers, setLedgers] = useState<TallyLedger[]>([]);
   const [loading, setLoading] = useState(false);
@@ -42,6 +46,53 @@ export const ClarificationQueuePage: React.FC = () => {
       setLoading(false);
     }
   };
+
+  // Register filter-accurate CSV exporter matching UI 1:1
+  useEffect(() => {
+    if (onRegisterExport) {
+      onRegisterExport(() => {
+        const headers = [
+          'Transaction ID',
+          'Date',
+          'Narration',
+          'Bank Reference',
+          'Amount (₹)',
+          'Suggested Ledger',
+          'Suggested Voucher Type',
+          'Confidence',
+          'Ambiguity Reason',
+          'Status'
+        ];
+        const rows = items.map(t => {
+          const amt = Number(t.debit_amount || t.credit_amount || 0);
+          const conf = t.classification?.confidence ? `${Math.round(Number(t.classification.confidence) * 100)}%` : '--';
+          return [
+            `"#${t.id}"`,
+            `"${t.transaction_date}"`,
+            `"${(t.narration || '').replace(/"/g, '""')}"`,
+            `"${(t.bank_reference || '').replace(/"/g, '""')}"`,
+            `"${amt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}"`,
+            `"${(t.classification?.suggested_ledger || 'Unassigned').replace(/"/g, '""')}"`,
+            `"${t.classification?.suggested_voucher_type || (Number(t.debit_amount) > 0 ? 'Payment' : 'Receipt')}"`,
+            `"${conf}"`,
+            `"${(t.classification?.ambiguity_reason || 'Requires human verification').replace(/"/g, '""')}"`,
+            `"Needs Review"`
+          ];
+        });
+
+        const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
+        const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `Clarification_Queue_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      });
+    }
+  }, [onRegisterExport, items]);
 
   const selectTx = (tx: BankTransaction) => {
     setActiveTx(tx);

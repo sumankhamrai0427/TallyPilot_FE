@@ -3,7 +3,11 @@ import { Search, Filter, RefreshCw, CheckCircle, HelpCircle, AlertCircle, ArrowU
 import { api } from '../services/api';
 import { BankTransaction } from '../types';
 
-export const TransactionsPage: React.FC = () => {
+interface TransactionsPageProps {
+  onRegisterExport?: (exporter: () => void) => void;
+}
+
+export const TransactionsPage: React.FC<TransactionsPageProps> = ({ onRegisterExport }) => {
   const [transactions, setTransactions] = useState<BankTransaction[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -38,6 +42,53 @@ export const TransactionsPage: React.FC = () => {
     setPage(1);
     loadTransactions();
   };
+
+  // Register filter-accurate CSV exporter matching UI 1:1
+  useEffect(() => {
+    if (onRegisterExport) {
+      onRegisterExport(() => {
+        const headers = [
+          'Date',
+          'Narration & Ref',
+          'Debit (₹)',
+          'Credit (₹)',
+          'Suggested Ledger',
+          'Voucher Type',
+          'Confidence',
+          'Status'
+        ];
+        const rows = transactions.map(t => {
+          const debit = Number(t.debit_amount || 0);
+          const credit = Number(t.credit_amount || 0);
+          const conf = t.classification?.confidence ? `${Math.round(Number(t.classification.confidence) * 100)}%` : '--';
+          const narrationWithRef = t.bank_reference ? `${t.narration} (Ref: ${t.bank_reference})` : t.narration;
+          const statusStr = t.status === 'PROCESSED' ? 'Processed' : t.status === 'PENDING_APPROVAL' ? 'Pending Approval' : t.status === 'NEEDS_CLARIFICATION' ? 'Needs Review' : t.status;
+
+          return [
+            `"${formatAccountingDate(t.transaction_date)}"`,
+            `"${narrationWithRef.replace(/"/g, '""')}"`,
+            debit > 0 ? `"${debit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}"` : `"-"`,
+            credit > 0 ? `"${credit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}"` : `"-"`,
+            `"${(t.classification?.suggested_ledger || 'Unassigned').replace(/"/g, '""')}"`,
+            `"${t.classification?.suggested_voucher_type || (debit > 0 ? 'Payment' : 'Receipt')}"`,
+            `"${conf}"`,
+            `"${statusStr}"`
+          ];
+        });
+
+        const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\r\n');
+        const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `All_Transactions_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      });
+    }
+  }, [onRegisterExport, transactions]);
 
   const formatAccountingDate = (dateVal: string | null | undefined): string => {
     if (!dateVal) return '-';

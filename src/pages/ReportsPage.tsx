@@ -29,7 +29,8 @@ export const ReportsPage: React.FC = () => {
   const [toDate, setToDate] = useState<string>('');
   const [asOfDate, setAsOfDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [selectedVoucherType, setSelectedVoucherType] = useState<string>('');
-  const [selectedLedgerId, setSelectedLedgerId] = useState<number | ''>('');
+  const [daybookLedgerId, setDaybookLedgerId] = useState<number | ''>('');
+  const [reportLedgerId, setReportLedgerId] = useState<number | ''>('');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [debitCreditFilter, setDebitCreditFilter] = useState<string>('ALL');
@@ -39,9 +40,6 @@ export const ReportsPage: React.FC = () => {
     api.getChartLedgers()
       .then(list => {
         setLedgers(list);
-        if (list.length > 0 && selectedLedgerId === '') {
-          setSelectedLedgerId(list[0].id);
-        }
       })
       .catch(err => console.error('Error loading ledgers:', err));
   }, []);
@@ -54,20 +52,22 @@ export const ReportsPage: React.FC = () => {
           from_date: fromDate || undefined,
           to_date: toDate || undefined,
           voucher_type: selectedVoucherType || undefined,
-          ledger_id: selectedLedgerId ? Number(selectedLedgerId) : undefined,
+          ledger_id: daybookLedgerId ? Number(daybookLedgerId) : undefined,
           status: selectedStatus !== 'ALL' ? selectedStatus : undefined,
           search: searchTerm || undefined,
           debit_credit: debitCreditFilter !== 'ALL' ? debitCreditFilter : undefined
         });
         setDayBookData(data);
       } else if (activeReport === 'ledger') {
-        if (selectedLedgerId) {
-          const data = await api.getLedgerReport(Number(selectedLedgerId), {
+        if (reportLedgerId) {
+          const data = await api.getLedgerReport(Number(reportLedgerId), {
             from_date: fromDate || undefined,
             to_date: toDate || undefined,
             voucher_type: selectedVoucherType || undefined
           });
           setLedgerReport(data);
+        } else {
+          setLedgerReport(null);
         }
       } else if (activeReport === 'tb') {
         const data = await api.getTrialBalance({ as_of_date: asOfDate });
@@ -91,7 +91,7 @@ export const ReportsPage: React.FC = () => {
 
   useEffect(() => {
     loadReportData();
-  }, [activeReport, asOfDate, selectedLedgerId]);
+  }, [activeReport, asOfDate, daybookLedgerId, reportLedgerId]);
 
   const handleApplyFilter = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -338,8 +338,8 @@ export const ReportsPage: React.FC = () => {
                 </select>
 
                 <select
-                  value={selectedLedgerId}
-                  onChange={(e) => setSelectedLedgerId(e.target.value ? Number(e.target.value) : '')}
+                  value={daybookLedgerId}
+                  onChange={(e) => setDaybookLedgerId(e.target.value ? Number(e.target.value) : '')}
                   className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300 max-w-[200px] truncate"
                 >
                   <option value="">All Ledgers</option>
@@ -364,7 +364,7 @@ export const ReportsPage: React.FC = () => {
                   onChange={(e) => setDebitCreditFilter(e.target.value)}
                   className="px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-300"
                 >
-                  <option value="ALL">Debit & Credit</option>
+                  <option value="ALL">All (Debit & Credit)</option>
                   <option value="DEBIT">Debit Lines Only</option>
                   <option value="CREDIT">Credit Lines Only</option>
                 </select>
@@ -502,10 +502,11 @@ export const ReportsPage: React.FC = () => {
                   Select Ledger Account
                 </label>
                 <select
-                  value={selectedLedgerId}
-                  onChange={(e) => setSelectedLedgerId(Number(e.target.value))}
+                  value={reportLedgerId}
+                  onChange={(e) => setReportLedgerId(e.target.value ? Number(e.target.value) : '')}
                   className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-semibold text-slate-800 dark:text-slate-200"
                 >
+                  <option value="">-- Select Ledger Account --</option>
                   {ledgers.map(l => (
                     <option key={l.id} value={l.id}>
                       {l.name} {l.group_name ? `(${l.group_name})` : ''}
@@ -599,6 +600,12 @@ export const ReportsPage: React.FC = () => {
             {/* Statement Table */}
             {loading ? (
               <div className="p-12 text-center text-slate-400">Loading ledger report...</div>
+            ) : !reportLedgerId ? (
+              <div className="p-12 text-center text-slate-400 dark:text-slate-500">
+                <BookOpen className="w-8 h-8 mx-auto text-slate-300 dark:text-slate-600 mb-2" />
+                <p className="font-semibold text-slate-700 dark:text-slate-300">Select a Ledger Account</p>
+                <p className="text-xs text-slate-400 mt-1">Choose a ledger from the dropdown above to view its statement & running balance.</p>
+              </div>
             ) : !ledgerReport || ledgerReport.items.length === 0 ? (
               <div className="p-12 text-center text-slate-400">No transactions recorded for this ledger in the selected period.</div>
             ) : (
