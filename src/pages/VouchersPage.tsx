@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   BookOpen, Plus, CheckCircle, AlertCircle, Filter,
   Search, Eye, RefreshCw, ArrowRightLeft, FileSpreadsheet,
@@ -399,8 +400,13 @@ export const VouchersPage: React.FC = () => {
                   </tr>
                 ) : (
                   vouchers.map((v) => (
-                    <tr key={v.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
-                      <td className="px-5 py-3 font-semibold text-slate-900 dark:text-white whitespace-nowrap">
+                    <tr
+                      key={v.id}
+                      onClick={() => { setActiveVoucher(v); setShowDetailModal(true); }}
+                      className="hover:bg-blue-50/60 dark:hover:bg-slate-800/60 transition-colors cursor-pointer group"
+                      title="Click row to view voucher details"
+                    >
+                      <td className="px-5 py-3 font-semibold text-blue-600 dark:text-blue-400 group-hover:underline whitespace-nowrap">
                         {v.voucher_number}
                       </td>
                       <td className="px-5 py-3 text-slate-500 whitespace-nowrap">
@@ -437,25 +443,21 @@ export const VouchersPage: React.FC = () => {
                       <td className="px-5 py-3 text-center font-medium">
                         {v.lines?.length || 0}
                       </td>
-                      <td className="px-5 py-3 text-center space-x-1.5 whitespace-nowrap">
-                        <button
-                          onClick={() => { setActiveVoucher(v); setShowDetailModal(true); }}
-                          className="px-2.5 py-1 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded transition-colors cursor-pointer"
-                        >
-                          Details
-                        </button>
-
+                      <td
+                        className="px-5 py-3 text-center space-x-1.5 whitespace-nowrap"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         {/* HLA 7.6 Draft edit */}
                         {v.status === 'DRAFT' && (
                           <>
                             <button
-                              onClick={() => openEditModal(v)}
+                              onClick={(e) => { e.stopPropagation(); openEditModal(v); }}
                               className="px-2.5 py-1 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:text-blue-300 rounded transition-colors cursor-pointer"
                             >
                               Edit
                             </button>
                             <button
-                              onClick={() => handlePostVoucher(v.id)}
+                              onClick={(e) => { e.stopPropagation(); handlePostVoucher(v.id); }}
                               className="px-2.5 py-1 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white rounded transition-colors cursor-pointer shadow-xs"
                             >
                               Post
@@ -466,7 +468,7 @@ export const VouchersPage: React.FC = () => {
                         {/* HLA 7.5 Controlled Reversal */}
                         {v.status === 'POSTED' && (
                           <button
-                            onClick={() => openReverseModal(v)}
+                            onClick={(e) => { e.stopPropagation(); openReverseModal(v); }}
                             className="px-2.5 py-1 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-600 hover:text-white dark:bg-rose-950/40 dark:text-rose-300 rounded transition-colors cursor-pointer"
                             title="Reverse this posted voucher"
                           >
@@ -537,9 +539,15 @@ export const VouchersPage: React.FC = () => {
       {/* ======================================================== */}
       {/* CREATE / EDIT VOUCHER MODAL (HLA Part 7.4 & 7.6) */}
       {/* ======================================================== */}
-      {showCreateModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-4xl w-full border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden my-8">
+      {showCreateModal && createPortal(
+        <div
+          className="fixed inset-0 z-[100] bg-slate-950/45 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+          onClick={() => setShowCreateModal(false)}
+        >
+          <div
+            className="bg-white dark:bg-slate-900 rounded-2xl max-w-4xl w-full border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden my-8"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
               <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <BookOpen className="w-5 h-5 text-blue-600" />
@@ -770,15 +778,22 @@ export const VouchersPage: React.FC = () => {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ======================================================== */}
       {/* REVERSAL CONFIRMATION MODAL (HLA Part 7.5) */}
       {/* ======================================================== */}
-      {showReverseModal && activeVoucher && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden p-6 space-y-4">
+      {showReverseModal && activeVoucher && createPortal(
+        <div
+          className="fixed inset-0 z-[100] bg-slate-950/45 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setShowReverseModal(false)}
+        >
+          <div
+            className="bg-white dark:bg-slate-900 rounded-2xl max-w-lg w-full border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden p-6 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-start gap-3">
               <div className="p-2.5 rounded-full bg-rose-100 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400">
                 <AlertTriangle className="w-6 h-6" />
@@ -834,15 +849,22 @@ export const VouchersPage: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ======================================================== */}
       {/* VOUCHER DETAIL MODAL */}
       {/* ======================================================== */}
-      {showDetailModal && activeVoucher && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-2xl w-full border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden p-6 space-y-4">
+      {showDetailModal && activeVoucher && createPortal(
+        <div
+          className="fixed inset-0 z-[100] bg-slate-950/45 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setShowDetailModal(false)}
+        >
+          <div
+            className="bg-white dark:bg-slate-900 rounded-2xl max-w-2xl w-full border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden p-6 space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
               <div>
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -915,7 +937,8 @@ export const VouchersPage: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
