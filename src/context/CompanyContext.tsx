@@ -5,7 +5,7 @@ import { api } from '../services/api';
 interface CompanyContextType {
   companies: Company[];
   activeCompany: Company | null;
-  setActiveCompany: (company: Company) => void;
+  setActiveCompany: (company: Company) => Promise<void>;
   financialYears: FinancialYear[];
   activeFinancialYear: FinancialYear | null;
   setActiveFinancialYear: (fy: FinancialYear) => void;
@@ -42,6 +42,8 @@ export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setActiveFinancialYearState(foundFy);
         if (foundFy) {
           localStorage.setItem('tallypilot_active_fy_id', String(foundFy.id));
+        } else {
+          localStorage.removeItem('tallypilot_active_fy_id');
         }
       }
     } catch (err) {
@@ -58,6 +60,10 @@ export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const setActiveCompany = async (company: Company) => {
     setActiveCompanyState(company);
     localStorage.setItem('tallypilot_active_company_id', String(company.id));
+    // Clear existing FY first to prevent sending previous company's FY ID
+    localStorage.removeItem('tallypilot_active_fy_id');
+    setActiveFinancialYearState(null);
+
     try {
       const fyList = await api.getFinancialYears();
       setFinancialYears(fyList);
@@ -65,6 +71,8 @@ export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setActiveFinancialYearState(currentFy);
       if (currentFy) {
         localStorage.setItem('tallypilot_active_fy_id', String(currentFy.id));
+      } else {
+        localStorage.removeItem('tallypilot_active_fy_id');
       }
     } catch (e) {
       console.error('Error switching company:', e);

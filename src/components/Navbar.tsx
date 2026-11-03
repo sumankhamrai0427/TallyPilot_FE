@@ -51,7 +51,7 @@ export const Navbar: React.FC<NavbarProps> = ({ summary }) => {
           </div>
 
           {/* FY Dropdown */}
-          {financialYears.length > 0 && (
+          {financialYears.length > 0 ? (
             <div className="relative flex items-center">
               <select
                 value={activeFinancialYear?.id || ''}
@@ -68,6 +68,10 @@ export const Navbar: React.FC<NavbarProps> = ({ summary }) => {
                 ))}
               </select>
               <ChevronDown className="w-3.5 h-3.5 text-blue-500 absolute right-2 pointer-events-none" />
+            </div>
+          ) : (
+            <div className="text-[11px] text-amber-600 bg-amber-50 dark:bg-amber-950/40 px-2.5 py-1 rounded-lg border border-amber-200 dark:border-amber-800/40 font-medium select-none">
+              No FY Configured
             </div>
           )}
         </div>
