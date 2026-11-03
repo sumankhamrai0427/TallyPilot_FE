@@ -20,18 +20,18 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ summary }) => {
-  const pendingReviewCount = (summary?.approval_queue_count || 0) + (summary?.clarification_queue_count || 0);
+  const clarificationCount = summary?.clarification_queue_count || 0;
 
   const navItems = [
     { label: 'Dashboard', path: '/', icon: LayoutDashboard },
     { label: 'Assistant', path: '/assistant', icon: Bot },
     { label: 'Documents Hub', path: '/documents', icon: FolderOpen },
     {
-      label: 'Pending Approval',
+      label: 'Clarification Queue',
       path: '/review',
       icon: CheckCircle2,
-      badge: pendingReviewCount > 0 ? pendingReviewCount : undefined,
-      badgeColor: 'bg-blue-600 text-white'
+      badge: clarificationCount > 0 ? clarificationCount : undefined,
+      badgeColor: 'bg-amber-500 text-white'
     },
     { label: 'Vouchers', path: '/vouchers', icon: BookOpen },
     { label: 'Chart of Accounts', path: '/chart-of-accounts', icon: Network },

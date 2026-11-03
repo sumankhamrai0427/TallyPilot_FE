@@ -117,7 +117,7 @@ export const ClarificationQueuePage: React.FC<ClarificationQueuePageProps> = ({ 
         corrected_transaction_type: transactionType,
         reviewer_notes: reviewerNotes
       });
-      setStatusMessage({ text: `Transaction #${activeTx.id} clarified and moved to Approval Queue!` });
+      setStatusMessage({ text: `Transaction #${activeTx.id} clarified and posted directly to Vouchers & Tally!` });
       loadData();
     } catch (err: any) {
       setStatusMessage({ text: err.response?.data?.detail || err.message || "Failed to clarify", isError: true });
@@ -362,7 +362,7 @@ export const ClarificationQueuePage: React.FC<ClarificationQueuePageProps> = ({ 
                   className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-2 shadow-xs disabled:opacity-40 cursor-pointer"
                 >
                   <Check className="w-4 h-4" />
-                  <span>Submit & Revalidate</span>
+                  <span>Approve & Post to Vouchers</span>
                 </button>
               </div>
             </div>

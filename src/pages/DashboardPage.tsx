@@ -274,19 +274,19 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ summary: propSumma
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* 1. Pending Vouchers */}
+          {/* 1. Needs Clarification */}
           <div
             onClick={() => navigate('/review')}
-            className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-blue-400 dark:hover:border-blue-500 transition-all cursor-pointer"
+            className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs hover:border-amber-400 dark:hover:border-amber-500 transition-all cursor-pointer"
           >
-            <div className="flex items-center justify-between text-blue-600 dark:text-blue-400 text-xs font-semibold uppercase tracking-wider">
-              <span>Pending Vouchers</span>
-              <BookOpen className="w-4 h-4 text-blue-500" />
+            <div className="flex items-center justify-between text-amber-600 dark:text-amber-400 text-xs font-semibold uppercase tracking-wider">
+              <span>Needs Clarification</span>
+              <HelpCircle className="w-4 h-4 text-amber-500" />
             </div>
-            <div className="mt-2 text-2xl font-bold text-blue-600 dark:text-blue-400">
-              {summary?.pending_vouchers ?? summary?.approval_queue_count ?? 0}
+            <div className="mt-2 text-2xl font-bold text-amber-600 dark:text-amber-400">
+              {summary?.clarification_queue_count ?? 0}
             </div>
-            <div className="mt-1 text-xs text-slate-400 dark:text-slate-500">Drafts awaiting approval</div>
+            <div className="mt-1 text-xs text-slate-400 dark:text-slate-500">Awaiting user clarification</div>
           </div>
 
           {/* 2. Unprocessed Documents */}

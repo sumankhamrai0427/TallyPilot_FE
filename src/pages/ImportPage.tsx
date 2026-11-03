@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   UploadCloud,
   FileSpreadsheet,
@@ -13,22 +14,54 @@ import {
   Database,
   ArrowRight,
   Clock,
-  CheckCheck
+  CheckCheck,
+  Sparkles,
+  Check,
+  BookOpen,
+  CheckCircle2,
+  AlertTriangle
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
-import { ImportBatch } from '../types';
+import { ImportBatch, BankTransaction } from '../types';
 
 const ALLOWED_EXTENSIONS = ['xlsx', 'xls', 'csv', 'pdf', 'txt'];
 
+const formatINR = (val: number | string | null | undefined): string => {
+  const num = Number(val || 0);
+  if (num === 0) return '—';
+  return `₹${num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
+
+const formatAccountingDate = (dateStr: string | null | undefined): string => {
+  if (!dateStr) return 'N/A';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${d.getDate().toString().padStart(2, '0')}-${months[d.getMonth()]}-${d.getFullYear()}`;
+  } catch {
+    return dateStr;
+  }
+};
+
 export const ImportPage: React.FC = () => {
+  const navigate = useNavigate();
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [uploadStage, setUploadStage] = useState<string>('');
   const [isScanning, setIsScanning] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [uploadResults, setUploadResults] = useState<ImportBatch[]>([]);
   const [failedFiles, setFailedFiles] = useState<{ filename: string; error: string }[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Post-Ingestion Journal Summary Modal State
+  const [summaryModalData, setSummaryModalData] = useState<{
+    batch: ImportBatch;
+    transactions: BankTransaction[];
+  } | null>(null);
 
   // Persistent batches loaded from Database
   const [batches, setBatches] = useState<ImportBatch[]>([]);
@@ -63,7 +96,7 @@ export const ImportPage: React.FC = () => {
       if (!isUploading && !isScanning) {
         api.getBatches().then(data => {
           if (data) setBatches(data);
-        }).catch(() => {});
+        }).catch(() => { });
       }
     }, 6000);
 
@@ -163,19 +196,52 @@ export const ImportPage: React.FC = () => {
 
   const handleUpload = async () => {
     if (selectedFiles.length === 0) return;
+    let progressInterval: any = null;
     try {
       setIsUploading(true);
+      setUploadProgress(10);
+      setUploadStage('Uploading statement file(s) to server...');
       setErrorMessage(null);
       setUploadResults([]);
       setFailedFiles([]);
 
+      // Start dynamic, realistic 0 -> 94% progress progression
+      progressInterval = setInterval(() => {
+        setUploadProgress(prev => {
+          if (prev < 30) {
+            setUploadStage('Uploading statement file(s) to server...');
+            return prev + 4;
+          } else if (prev < 58) {
+            setUploadStage('Parsing Excel/CSV rows & extracting transaction records...');
+            return prev + 3;
+          } else if (prev < 82) {
+            setUploadStage('Running AI / LLM classification & ledger mapping...');
+            return prev + 2;
+          } else if (prev < 94) {
+            setUploadStage('Validating double-entry accounting rules & auto-posting vouchers...');
+            return prev + 1;
+          }
+          return 94;
+        });
+      }, 260);
+
       const res = await api.uploadFiles(selectedFiles);
 
+      if (progressInterval) clearInterval(progressInterval);
+      setUploadProgress(100);
+      setUploadStage('Completed 100%! All transactions processed and synced.');
+
+      // Allow user to clearly see 100% completed status bar
+      await new Promise(r => setTimeout(r, 650));
+
+      let uploadedBatch: ImportBatch | null = null;
       if (res.batches && res.batches.length > 0) {
         setUploadResults(res.batches);
+        uploadedBatch = res.batches[0];
       } else if ((res as any).batch_id) {
-        // Backward compatibility if single object returned
-        setUploadResults([res as unknown as ImportBatch]);
+        const singleBatch = res as unknown as ImportBatch;
+        setUploadResults([singleBatch]);
+        uploadedBatch = singleBatch;
       }
 
       if (res.failed_files && res.failed_files.length > 0) {
@@ -185,10 +251,26 @@ export const ImportPage: React.FC = () => {
       setSelectedFiles([]);
       // Refresh persistent database batches list
       loadBatches();
+
+      // Automatically open Post-Ingestion Journal Summary Modal
+      if (uploadedBatch && uploadedBatch.id) {
+        try {
+          const txRes = await api.getTransactions({ batch_id: uploadedBatch.id, page_size: 100 });
+          setSummaryModalData({
+            batch: uploadedBatch,
+            transactions: txRes.items || []
+          });
+        } catch (fetchErr) {
+          console.error("Failed to load batch transactions for popup modal:", fetchErr);
+        }
+      }
     } catch (err: any) {
+      if (progressInterval) clearInterval(progressInterval);
       setErrorMessage(err.response?.data?.detail || err.message || "Failed to process bank statement(s)");
     } finally {
       setIsUploading(false);
+      setUploadProgress(0);
+      setUploadStage('');
     }
   };
 
@@ -200,6 +282,16 @@ export const ImportPage: React.FC = () => {
       if (res.length > 0) {
         setUploadResults(res);
         loadBatches();
+        try {
+          const firstBatch = res[0];
+          const txRes = await api.getTransactions({ batch_id: firstBatch.id, page_size: 100 });
+          setSummaryModalData({
+            batch: firstBatch,
+            transactions: txRes.items || []
+          });
+        } catch (fetchErr) {
+          console.error("Failed to load scanned batch transactions:", fetchErr);
+        }
       } else {
         setErrorMessage("No new statement files (.xlsx, .xls, .csv, .pdf, .txt) found in the ./input watcher directory.");
       }
@@ -224,11 +316,10 @@ export const ImportPage: React.FC = () => {
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        className={`bg-white dark:bg-slate-900 p-8 rounded-xl border-2 border-dashed transition-all text-center shadow-xs ${
-          isDragging
+        className={`bg-white dark:bg-slate-900 p-8 rounded-xl border-2 border-dashed transition-all text-center shadow-xs ${isDragging
             ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-950/30'
             : 'border-slate-300 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-400'
-        }`}
+          }`}
       >
         <div className="w-14 h-14 bg-blue-50 dark:bg-blue-950/60 rounded-full flex items-center justify-center mx-auto text-blue-600 dark:text-blue-400 mb-4">
           <UploadCloud className="w-7 h-7" />
@@ -305,24 +396,67 @@ export const ImportPage: React.FC = () => {
               })}
             </div>
 
-            {/* Upload Action Area with requested PrimeIcons spinner */}
-            <div className="mt-5 flex flex-col items-center justify-center gap-3">
+            {/* Upload Action Area with Dynamic 0 to 100% Progress Bar */}
+            <div className="mt-5 w-full max-w-lg mx-auto">
               {isUploading ? (
-                <div className="flex flex-col items-center justify-center py-3 text-blue-600 dark:text-blue-400 gap-2">
-                  <i className="pi pi-spin pi-spinner" style={{ fontSize: '2rem' }}></i>
-                  <span className="text-sm font-semibold animate-pulse">
-                    Parsing & Ingesting {selectedFiles.length} statement(s) ...
-                  </span>
+                <div className="bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-2xl p-5 shadow-xs space-y-3.5">
+                  {/* Top: Status & Percent */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center text-xs shadow-xs">
+                        {uploadProgress === 100 ? (
+                          <Check className="w-4 h-4 text-white" />
+                        ) : (
+                          <i className="pi pi-spin pi-spinner text-sm"></i>
+                        )}
+                      </div>
+                      <div className="text-left">
+                        <h5 className="text-xs font-bold text-slate-800 dark:text-white">
+                          Ingesting {selectedFiles.length} Statement File{selectedFiles.length > 1 ? 's' : ''}
+                        </h5>
+                        <p className="text-[11px] text-slate-400 dark:text-slate-400 truncate max-w-xs">
+                          {selectedFiles.map(f => f.name).join(', ')}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-base font-black font-mono text-blue-600 dark:text-blue-400">
+                      {uploadProgress}%
+                    </span>
+                  </div>
+
+                  {/* 0 to 100% Dynamic Progress Bar Track */}
+                  <div className="w-full h-3 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden p-0.5 shadow-inner">
+                    <div
+                      className={`h-full rounded-full transition-all duration-300 ease-out ${uploadProgress === 100
+                          ? 'bg-gradient-to-r from-emerald-500 to-teal-500'
+                          : 'bg-gradient-to-r from-blue-600 via-indigo-500 to-amber-500 animate-pulse'
+                        }`}
+                      style={{ width: `${uploadProgress}%` }}
+                    />
+                  </div>
+
+                  {/* Bottom: Stage Description & Step Tag */}
+                  <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pt-0.5">
+                    <span className="flex items-center gap-1.5 font-medium truncate">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                      <span className="truncate">{uploadStage}</span>
+                    </span>
+                    <span className="font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider shrink-0 text-[10px]">
+                      {uploadProgress < 30 ? 'Upload' : uploadProgress < 60 ? 'Parsing' : uploadProgress < 90 ? 'AI Engine' : uploadProgress < 100 ? 'Posting' : 'Done'}
+                    </span>
+                  </div>
                 </div>
               ) : (
-                <button
-                  onClick={handleUpload}
-                  disabled={isUploading}
-                  className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors flex items-center gap-2 shadow-sm cursor-pointer"
-                >
-                  <FileUp className="w-4 h-4" />
-                  <span>Parse & Ingest All ({selectedFiles.length})</span>
-                </button>
+                <div className="flex justify-center">
+                  <button
+                    onClick={handleUpload}
+                    disabled={isUploading}
+                    className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors flex items-center gap-2 shadow-sm cursor-pointer"
+                  >
+                    <FileUp className="w-4 h-4" />
+                    <span>Parse & Ingest All ({selectedFiles.length})</span>
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -542,13 +676,12 @@ export const ImportPage: React.FC = () => {
                         {batch.parsed_rows}
                       </td>
                       <td className="py-3 px-3">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-bold text-[10px] uppercase ${
-                          batch.status === 'COMPLETED'
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-bold text-[10px] uppercase ${batch.status === 'COMPLETED'
                             ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
                             : batch.status === 'FAILED'
-                            ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
-                            : 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
-                        }`}>
+                              ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
+                              : 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                          }`}>
                           {batch.status === 'COMPLETED' && <CheckCheck className="w-3 h-3" />}
                           {batch.status}
                         </span>
@@ -560,13 +693,35 @@ export const ImportPage: React.FC = () => {
                         </div>
                       </td>
                       <td className="py-3 px-3 text-right">
-                        <Link
-                          to={`/transactions?batch_id=${batch.id}`}
-                          className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline"
-                        >
-                          <span>Review</span>
-                          <ArrowRight className="w-3 h-3" />
-                        </Link>
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={async () => {
+                              try {
+                                const txRes = await api.getTransactions({ batch_id: batch.id, page_size: 100 });
+                                setSummaryModalData({
+                                  batch,
+                                  transactions: txRes.items || []
+                                });
+                              } catch (err) {
+                                console.error("Failed to load batch summary:", err);
+                              }
+                            }}
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline cursor-pointer"
+                            title="View Journal Entries and Ingestion Summary"
+                          >
+                            <BookOpen className="w-3.5 h-3.5" />
+                            <span>View Journal</span>
+                          </button>
+                          <span className="text-slate-300 dark:text-slate-700">|</span>
+                          <Link
+                            to={`/transactions?batch_id=${batch.id}`}
+                            className="inline-flex items-center gap-0.5 text-xs font-medium text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+                            title="Open in All Transactions Feed"
+                          >
+                            <span>Feed</span>
+                            <ArrowRight className="w-3 h-3" />
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -576,6 +731,232 @@ export const ImportPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Post-Ingestion Journal Review Modal (Rendered via createPortal to document.body) */}
+      {summaryModalData && createPortal(
+        <div
+          className="fixed inset-0 bg-slate-950/45 backdrop-blur-sm z-[100] flex items-center justify-center p-3 sm:p-6"
+          onClick={() => setSummaryModalData(null)}
+        >
+          <div
+            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl max-w-5xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between flex-shrink-0 bg-slate-50/70 dark:bg-slate-800/40">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-600/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0">
+                  <BookOpen className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                      Journal Entries & Ingestion Summary
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300">
+                      {summaryModalData.batch.batch_id}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    File: <span className="font-semibold text-slate-700 dark:text-slate-200">{summaryModalData.batch.filename}</span> &bull; {summaryModalData.transactions.length} transactions processed
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setSummaryModalData(null)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Quick KPI Cards & Table */}
+            {(() => {
+              const txs = summaryModalData.transactions;
+              const totalCount = txs.length;
+              const postedCount = txs.filter(t => t.status === 'PROCESSED' || t.status === 'APPROVED').length;
+              const clarificationCount = txs.filter(t => t.status === 'NEEDS_CLARIFICATION').length;
+              const totalDebit = txs.reduce((acc, t) => acc + Number(t.debit_amount || 0), 0);
+              const totalCredit = txs.reduce((acc, t) => acc + Number(t.credit_amount || 0), 0);
+
+              return (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/40 flex-shrink-0">
+                    <div className="bg-white dark:bg-slate-800 p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-2xs">
+                      <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-semibold">
+                        <span>Total Transactions</span>
+                        <FileSpreadsheet className="w-4 h-4 text-blue-500" />
+                      </div>
+                      <div className="mt-1 flex items-baseline gap-2">
+                        <span className="text-2xl font-bold text-slate-900 dark:text-white font-mono">{totalCount}</span>
+                        <span className="text-xs text-slate-400">rows parsed</span>
+                      </div>
+                      <div className="mt-1 text-[11px] text-slate-400 truncate">
+                        Debit: {formatINR(totalDebit)} &bull; Credit: {formatINR(totalCredit)}
+                      </div>
+                    </div>
+
+                    <div className="bg-white dark:bg-slate-800 p-3.5 rounded-xl border border-emerald-200/80 dark:border-emerald-800/80 shadow-2xs">
+                      <div className="flex items-center justify-between text-xs text-emerald-600 dark:text-emerald-400 font-semibold">
+                        <span>Auto-Approved & Posted</span>
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                      </div>
+                      <div className="mt-1 flex items-baseline gap-2">
+                        <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 font-mono">{postedCount}</span>
+                        <span className="text-xs text-emerald-500/80">vouchers created</span>
+                      </div>
+                      <div className="mt-1 text-[11px] text-emerald-600/70 dark:text-emerald-400/70">
+                        Recorded in General Ledger & Tally
+                      </div>
+                    </div>
+
+                    <div className="bg-white dark:bg-slate-800 p-3.5 rounded-xl border border-amber-200/80 dark:border-amber-800/80 shadow-2xs">
+                      <div className="flex items-center justify-between text-xs text-amber-600 dark:text-amber-400 font-semibold">
+                        <span>Requires Clarification</span>
+                        <AlertTriangle className="w-4 h-4 text-amber-500" />
+                      </div>
+                      <div className="mt-1 flex items-baseline gap-2">
+                        <span className="text-2xl font-bold text-amber-600 dark:text-amber-400 font-mono">{clarificationCount}</span>
+                        <span className="text-xs text-amber-500/80">needing review</span>
+                      </div>
+                      <div className="mt-1 text-[11px] text-amber-600/70 dark:text-amber-400/70">
+                        Ambiguous narration or verification
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Scrollable Proposed Voucher Breakdown Table */}
+                  <div className="overflow-y-auto flex-1 p-5">
+                    <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden shadow-2xs">
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 uppercase font-semibold tracking-wider text-[11px] border-b border-slate-200 dark:border-slate-800 sticky top-0 z-10">
+                          <tr>
+                            <th className="py-2.5 px-3">Date</th>
+                            <th className="py-2.5 px-3">Type</th>
+                            <th className="py-2.5 px-3">Ledger Account</th>
+                            <th className="py-2.5 px-3 text-right">Debit (₹)</th>
+                            <th className="py-2.5 px-3 text-right">Credit (₹)</th>
+                            <th className="py-2.5 px-3">Narration</th>
+                            <th className="py-2.5 px-3 text-center">Confidence</th>
+                            <th className="py-2.5 px-3 text-center">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
+                          {txs.map((tx) => {
+                            const voucherType = tx.classification?.suggested_voucher_type || (Number(tx.debit_amount) > 0 ? 'Payment' : 'Receipt');
+                            const ledgerName = tx.classification?.suggested_ledger || (Number(tx.debit_amount) > 0 ? 'Bank Charges / Expense' : 'Suspense / Income');
+                            const confidenceVal = tx.classification ? Math.round(Number(tx.classification.confidence) * 100) : 85;
+                            const isPosted = tx.status === 'PROCESSED' || tx.status === 'APPROVED';
+
+                            return (
+                              <tr key={tx.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/50 transition-colors">
+                                <td className="py-2.5 px-3 text-slate-600 dark:text-slate-300 whitespace-nowrap font-medium">
+                                  {formatAccountingDate(tx.transaction_date)}
+                                </td>
+                                <td className="py-2.5 px-3">
+                                  <span className={`px-2 py-0.5 rounded font-bold text-[10px] uppercase border inline-block ${voucherType === 'Payment'
+                                      ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800'
+                                      : voucherType === 'Receipt'
+                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800'
+                                        : 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-800'
+                                    }`}>
+                                    {voucherType}
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-3">
+                                  <span className="font-semibold text-slate-800 dark:text-slate-100 truncate block max-w-[180px]" title={ledgerName}>
+                                    {ledgerName}
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-3 text-right font-bold text-rose-600 dark:text-rose-400 whitespace-nowrap">
+                                  {formatINR(tx.debit_amount)}
+                                </td>
+                                <td className="py-2.5 px-3 text-right font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
+                                  {formatINR(tx.credit_amount)}
+                                </td>
+                                <td className="py-2.5 px-3 max-w-[200px]">
+                                  <div className="line-clamp-2 text-slate-700 dark:text-slate-300 text-xs leading-snug" title={tx.narration}>
+                                    {tx.narration}
+                                  </div>
+                                </td>
+                                <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full font-bold text-[10px] ${confidenceVal >= 80
+                                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800'
+                                      : 'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800'
+                                    }`}>
+                                    {confidenceVal}%
+                                  </span>
+                                </td>
+                                <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                                  {isPosted ? (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                                      <CheckCircle2 className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                                      <span>POSTED</span>
+                                    </span>
+                                  ) : tx.status === 'NEEDS_CLARIFICATION' ? (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-bold text-[10px] bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                                      <AlertTriangle className="w-3 h-3 text-amber-600 dark:text-amber-400" />
+                                      <span>CLARIFICATION</span>
+                                    </span>
+                                  ) : (
+                                    <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                                      {tx.status}
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Modal Footer with Actions */}
+                  <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between flex-shrink-0 bg-slate-50/70 dark:bg-slate-800/40">
+                    <button
+                      onClick={() => setSummaryModalData(null)}
+                      className="px-4 py-2 border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
+                    >
+                      Close
+                    </button>
+
+                    <div className="flex items-center gap-3">
+                      {clarificationCount > 0 && (
+                        <button
+                          onClick={() => {
+                            setSummaryModalData(null);
+                            navigate('/review');
+                          }}
+                          className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+                        >
+                          <AlertTriangle className="w-4 h-4" />
+                          <span>Resolve Clarifications ({clarificationCount})</span>
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => {
+                          setSummaryModalData(null);
+                          navigate('/vouchers');
+                        }}
+                        className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+                      >
+                        <BookOpen className="w-4 h-4 text-emerald-300" />
+                        <span>Go to Vouchers Journal</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 };

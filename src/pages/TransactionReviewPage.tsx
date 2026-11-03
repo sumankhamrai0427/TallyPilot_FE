@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  CheckCircle2, HelpCircle, FileSpreadsheet, 
-  BookOpen, Sparkles, Filter, RefreshCw, Download 
+  HelpCircle, FileSpreadsheet, 
+  RefreshCw, Download 
 } from 'lucide-react';
-import { VoucherReviewTable } from '../components/VoucherReviewTable';
 import { ClarificationQueuePage } from './ClarificationQueuePage';
 import { TransactionsPage } from './TransactionsPage';
 
@@ -11,9 +10,10 @@ interface TransactionReviewPageProps {
   initialTab?: 'review' | 'approvals' | 'clarification' | 'all';
 }
 
-export const TransactionReviewPage: React.FC<TransactionReviewPageProps> = ({ initialTab = 'review' }) => {
-  const normalizedTab = initialTab === 'approvals' ? 'review' : initialTab;
-  const [activeTab, setActiveTab] = useState<'review' | 'clarification' | 'all'>(normalizedTab);
+export const TransactionReviewPage: React.FC<TransactionReviewPageProps> = ({ initialTab = 'clarification' }) => {
+  const normalizedTab: 'clarification' | 'all' = 
+    (initialTab === 'review' || initialTab === 'approvals' || initialTab === 'clarification') ? 'clarification' : 'all';
+  const [activeTab, setActiveTab] = useState<'clarification' | 'all'>(normalizedTab);
   const [refreshKey, setRefreshKey] = useState<number>(0);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   
@@ -37,7 +37,7 @@ export const TransactionReviewPage: React.FC<TransactionReviewPageProps> = ({ in
     };
   }, []);
 
-  const handleTabChange = (tab: 'review' | 'clarification' | 'all') => {
+  const handleTabChange = (tab: 'clarification' | 'all') => {
     setActiveTab(tab);
     setRefreshKey(k => k + 1);
   };
@@ -61,18 +61,6 @@ export const TransactionReviewPage: React.FC<TransactionReviewPageProps> = ({ in
       {/* Top Unified Tab Navigation Bar */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-2.5 flex items-center justify-between shadow-xs">
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => handleTabChange('review')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
-              activeTab === 'review'
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-            }`}
-          >
-            <BookOpen className="w-4 h-4 text-emerald-300" />
-            <span>Proposed Vouchers</span>
-          </button>
-
           <button
             onClick={() => handleTabChange('clarification')}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
@@ -122,12 +110,6 @@ export const TransactionReviewPage: React.FC<TransactionReviewPageProps> = ({ in
 
       {/* Render Active View with remount key and filter-aware export registration */}
       <div>
-        {activeTab === 'review' && (
-          <VoucherReviewTable 
-            key={`review-${refreshKey}`} 
-            onRegisterExport={(fn) => { exportHandlerRef.current = fn; }}
-          />
-        )}
         {activeTab === 'clarification' && (
           <ClarificationQueuePage 
             key={`clarification-${refreshKey}`} 
