@@ -98,16 +98,22 @@ export const api = {
   getDashboardSummary: () => apiClient.get<DashboardSummary>('/dashboard/summary').then(r => r.data),
 
   // Files
-  uploadFile: (file: File) => {
+  uploadFile: (file: File, bankLedgerId?: number | null) => {
     const formData = new FormData();
     formData.append('file', file);
+    if (bankLedgerId) {
+      formData.append('bank_ledger_id', bankLedgerId.toString());
+    }
     return apiClient.post<ImportBatch>('/files/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     }).then(r => r.data);
   },
-  uploadFiles: (files: File[]) => {
+  uploadFiles: (files: File[], bankLedgerId?: number | null) => {
     const formData = new FormData();
     files.forEach(f => formData.append('files', f));
+    if (bankLedgerId) {
+      formData.append('bank_ledger_id', bankLedgerId.toString());
+    }
     return apiClient.post<{
       batches: ImportBatch[];
       total_files: number;
@@ -207,6 +213,16 @@ export const api = {
   // AI Conversational Assistant (HLA Part 9 & 12)
   getAssistantSessions: () => apiClient.get<any[]>('/assistant/sessions').then(r => r.data),
   getAssistantHistory: (sessionId: number) => apiClient.get<any>(`/assistant/history/${sessionId}`).then(r => r.data),
-  sendAssistantMessage: (data: { message: string; session_id?: number | null }) =>
-    apiClient.post<{ session_id: number; reply: string; tool_calls?: any }>('/assistant/chat', data).then(r => r.data),
+  sendAssistantMessage: (data: { message: string; session_id?: number | null; file?: File | null }) => {
+    if (data.file) {
+      const fd = new FormData();
+      fd.append('message', data.message);
+      if (data.session_id) fd.append('session_id', data.session_id.toString());
+      fd.append('file', data.file);
+      return apiClient.post<{ session_id: number; reply: string; tool_calls?: any }>('/assistant/chat', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      }).then(r => r.data);
+    }
+    return apiClient.post<{ session_id: number; reply: string; tool_calls?: any }>('/assistant/chat', data).then(r => r.data);
+  },
 };

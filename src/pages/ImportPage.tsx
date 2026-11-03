@@ -13,13 +13,20 @@ import {
   Database,
   ArrowRight,
   Clock,
-  CheckCheck
+  CheckCheck,
+  Landmark,
+  Sparkles
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { api } from '../services/api';
 import { ImportBatch } from '../types';
 
 const ALLOWED_EXTENSIONS = ['xlsx', 'xls', 'csv', 'pdf', 'txt'];
+
+interface BankAccountOption {
+  id: number;
+  name: string;
+}
 
 export const ImportPage: React.FC = () => {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -29,6 +36,11 @@ export const ImportPage: React.FC = () => {
   const [uploadResults, setUploadResults] = useState<ImportBatch[]>([]);
   const [failedFiles, setFailedFiles] = useState<{ filename: string; error: string }[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Bank Account Selection (Hybrid: Auto-Detect with dropdown override)
+  const [bankAccounts, setBankAccounts] = useState<BankAccountOption[]>([]);
+  const [selectedBankId, setSelectedBankId] = useState<number | null>(null);
+  const [detectedBankName, setDetectedBankName] = useState<string | null>(null);
 
   // Persistent batches loaded from Database
   const [batches, setBatches] = useState<ImportBatch[]>([]);
@@ -46,8 +58,36 @@ export const ImportPage: React.FC = () => {
     }
   };
 
+  const loadBankAccounts = async () => {
+    try {
+      // First attempt from reconciliation summary which strictly returns Bank Accounts & Bank OD A/c
+      const recon = await api.getReconSummary();
+      if (recon && recon.bank_accounts && recon.bank_accounts.length > 0) {
+        setBankAccounts(recon.bank_accounts.map(b => ({ id: b.ledger_id, name: b.ledger_name })));
+        return;
+      }
+    } catch (err) {
+      console.warn("Could not fetch recon summary for bank accounts, falling back to chart of accounts:", err);
+    }
+
+    try {
+      const ledgers = await api.getChartLedgers();
+      const banks = ledgers.filter(
+        l => l.is_bank_account || 
+             l.group_name === 'Bank Accounts' || 
+             l.group_name === 'Bank OD A/c'
+      );
+      if (banks.length > 0) {
+        setBankAccounts(banks.map(b => ({ id: b.id, name: b.name })));
+      }
+    } catch (err) {
+      console.error("Failed to load bank accounts:", err);
+    }
+  };
+
   useEffect(() => {
     loadBatches();
+    loadBankAccounts();
   }, []);
 
   const formatFileSize = (bytes: number): string => {
@@ -70,6 +110,25 @@ export const ImportPage: React.FC = () => {
       default:
         return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700';
     }
+  };
+
+  const autoDetectBank = (files: File[], banks: BankAccountOption[]): BankAccountOption | null => {
+    for (const f of files) {
+      const lower = f.name.toLowerCase();
+      for (const b of banks) {
+        const bName = b.name.toLowerCase();
+        if (
+          (lower.includes('sbi') && (bName.includes('sbi') || bName.includes('state bank'))) ||
+          (lower.includes('state bank') && (bName.includes('sbi') || bName.includes('state bank'))) ||
+          (lower.includes('hdfc') && bName.includes('hdfc')) ||
+          (lower.includes('icici') && bName.includes('icici')) ||
+          (lower.includes('axis') && bName.includes('axis'))
+        ) {
+          return b;
+        }
+      }
+    }
+    return null;
   };
 
   const validateAndAddFiles = (fileList: FileList | File[]) => {
@@ -95,9 +154,17 @@ export const ImportPage: React.FC = () => {
     }
 
     if (newFiles.length > 0) {
-      setSelectedFiles(prev => [...prev, ...newFiles]);
+      const combined = [...selectedFiles, ...newFiles];
+      setSelectedFiles(combined);
       setUploadResults([]);
       setFailedFiles([]);
+
+      const detected = autoDetectBank(combined, bankAccounts);
+      if (detected) {
+        setDetectedBankName(detected.name);
+      } else {
+        setDetectedBankName(null);
+      }
     }
   };
 
@@ -130,12 +197,16 @@ export const ImportPage: React.FC = () => {
   };
 
   const handleRemoveFile = (index: number) => {
-    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    const updated = selectedFiles.filter((_, i) => i !== index);
+    setSelectedFiles(updated);
+    const detected = autoDetectBank(updated, bankAccounts);
+    setDetectedBankName(detected ? detected.name : null);
   };
 
   const handleClearAll = () => {
     setSelectedFiles([]);
     setErrorMessage(null);
+    setDetectedBankName(null);
   };
 
   const handleUpload = async () => {
@@ -146,7 +217,7 @@ export const ImportPage: React.FC = () => {
       setUploadResults([]);
       setFailedFiles([]);
 
-      const res = await api.uploadFiles(selectedFiles);
+      const res = await api.uploadFiles(selectedFiles, selectedBankId);
 
       if (res.batches && res.batches.length > 0) {
         setUploadResults(res.batches);
@@ -160,6 +231,7 @@ export const ImportPage: React.FC = () => {
       }
 
       setSelectedFiles([]);
+      setDetectedBankName(null);
       // Refresh persistent database batches list
       loadBatches();
     } catch (err: any) {
@@ -195,6 +267,67 @@ export const ImportPage: React.FC = () => {
           Upload single or multiple bank statements (.xlsx, .xls, .csv, .pdf, .txt) or scan the background input directory.
         </p>
       </div>
+
+      {/* Target Bank Account Selection */}
+      <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center text-blue-600 dark:text-blue-400 flex-shrink-0">
+            <Landmark className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <label htmlFor="target-bank-select" className="text-sm font-semibold text-slate-800 dark:text-white">
+                Target Bank Account
+              </label>
+              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                Contra Ledger
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Choose the bank ledger for this statement or allow auto-detection based on file contents.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 w-full sm:w-auto min-w-[260px]">
+          <select
+            id="target-bank-select"
+            value={selectedBankId ?? ''}
+            onChange={(e) => setSelectedBankId(e.target.value ? Number(e.target.value) : null)}
+            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium cursor-pointer"
+          >
+            <option value="">⚡ Auto-Detect Bank (Recommended)</option>
+            {bankAccounts.map((bank) => (
+              <option key={bank.id} value={bank.id}>
+                🏦 {bank.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Auto-Detection Notification Banner */}
+      {selectedBankId === null && detectedBankName && (
+        <div className="px-4 py-3 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 text-xs text-blue-800 dark:text-blue-300 flex items-center justify-between shadow-xs">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0 animate-pulse" />
+            <span>
+              Auto-detected Bank from statement: <strong className="font-bold underline decoration-blue-400">{detectedBankName}</strong>
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              const found = bankAccounts.find(b => b.name === detectedBankName);
+              if (found) setSelectedBankId(found.id);
+            }}
+            className="text-blue-700 dark:text-blue-300 font-bold hover:underline cursor-pointer flex items-center gap-1"
+          >
+            <span>Lock this bank</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* Upload Dropzone */}
       <div
