@@ -97,6 +97,15 @@ export const VouchersPage: React.FC = () => {
   const isBalanced = totalDebit > 0 && Math.abs(totalDebit - totalCredit) < 0.001;
   const discrepancy = Math.abs(totalDebit - totalCredit);
 
+  // General Ledger Postings Totals (Double-Entry Verification)
+  const glTotalDebit = glEntries.reduce((sum, e) => sum + (Number(e.debit_amount) || 0), 0);
+  const glTotalCredit = glEntries.reduce((sum, e) => sum + (Number(e.credit_amount) || 0), 0);
+  const isGLBalanced = glEntries.length > 0 && Math.abs(glTotalDebit - glTotalCredit) < 0.01;
+  const glDiscrepancy = Math.abs(glTotalDebit - glTotalCredit);
+
+  // Vouchers List Total Amount
+  const vouchersTotalAmount = vouchers.reduce((sum, v) => sum + (Number(v.total_amount) || 0), 0);
+
   const handleAddLine = () => {
     setLines([...lines, { ledger_id: 0, debit_amount: 0, credit_amount: 0, narration: '' }]);
   };
@@ -475,6 +484,19 @@ export const VouchersPage: React.FC = () => {
                   ))
                 )}
               </tbody>
+              {vouchers.length > 0 && (
+                <tfoot className="bg-slate-50 dark:bg-slate-800/80 font-bold border-t-2 border-slate-300 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200">
+                  <tr>
+                    <td colSpan={3} className="px-5 py-3.5 text-right font-sans uppercase tracking-wider text-slate-600 dark:text-slate-400">
+                      Total Vouchers ({vouchers.length}) :
+                    </td>
+                    <td className="px-5 py-3.5 text-right font-mono text-sm font-bold text-slate-900 dark:text-white">
+                      ₹{vouchersTotalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                    <td colSpan={3} className="px-5 py-3.5"></td>
+                  </tr>
+                </tfoot>
+              )}
             </table>
           </div>
         ) : (
@@ -535,6 +557,32 @@ export const VouchersPage: React.FC = () => {
                   ))
                 )}
               </tbody>
+              {glEntries.length > 0 && (
+                <tfoot className="bg-slate-50 dark:bg-slate-800/90 font-bold border-t-2 border-slate-300 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-200">
+                  <tr>
+                    <td colSpan={3} className="px-5 py-3.5 text-right font-sans uppercase tracking-wider text-slate-600 dark:text-slate-300">
+                      Total Ledger Postings ({glEntries.length} Lines) :
+                    </td>
+                    <td className="px-5 py-3.5 text-right font-mono text-sm font-bold text-emerald-700 dark:text-emerald-400">
+                      ₹{glTotalDebit.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                    <td className="px-5 py-3.5 text-right font-mono text-sm font-bold text-blue-700 dark:text-blue-400">
+                      ₹{glTotalCredit.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                    <td className="px-5 py-3.5 text-center font-sans">
+                      {isGLBalanced ? (
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                          BALANCED
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
+                          DIFF: ₹{glDiscrepancy.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
             </table>
           </div>
         )}

@@ -105,9 +105,12 @@ export const api = {
       headers: { 'Content-Type': 'multipart/form-data' }
     }).then(r => r.data);
   },
-  uploadFiles: (files: File[]) => {
+  uploadFiles: (files: File[], bankLedgerId?: number) => {
     const formData = new FormData();
     files.forEach(f => formData.append('files', f));
+    if (bankLedgerId) {
+      formData.append('bank_ledger_id', String(bankLedgerId));
+    }
     return apiClient.post<{
       success?: boolean;
       is_duplicate?: boolean;
@@ -123,6 +126,7 @@ export const api = {
   },
   scanInputFolder: () => apiClient.post<ImportBatch[]>('/files/scan').then(r => r.data),
   getBatches: () => apiClient.get<ImportBatch[]>('/files/batches').then(r => r.data),
+  getDocuments: (params?: { document_type?: string; limit?: number }) => apiClient.get<any[]>('/documents', { params }).then(r => r.data),
 
   // Transactions
   getTransactions: (params: {
@@ -185,6 +189,11 @@ export const api = {
   testTallyConnection: () => apiClient.post('/tally/test-connection').then(r => r.data),
   syncLedgers: () => apiClient.post<TallyLedger[]>('/tally/sync-ledgers').then(r => r.data),
   getLedgers: () => apiClient.get<TallyLedger[]>('/tally/ledgers').then(r => r.data),
+  getCompanyLedgers: () => apiClient.get<any[]>('/ledgers').then(r => r.data),
+  getAccountGroups: () => apiClient.get<any[]>('/groups').then(r => r.data),
+  createLedger: (data: { name: string; group_name?: string; group_id?: number; opening_balance?: number }) =>
+    apiClient.post<any>('/ledgers', data).then(r => r.data),
+  getBankLedgers: () => apiClient.get<any[]>('/ledgers/banks').then(r => r.data),
   getTallyCachedLedgers: () => apiClient.get<TallyLedger[]>('/tally/ledgers').then(r => r.data),
   getSubmissions: () => apiClient.get<any[]>('/tally/submissions').then(r => r.data),
 

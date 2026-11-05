@@ -49,7 +49,7 @@ export const CompanyMasterPage: React.FC = () => {
     financial_year_start_month: 4,
     tally_company_name: '',
     tally_url: 'http://localhost:9000',
-    default_bank_ledger: 'HDFC Bank',
+    default_bank_ledger: '',
     tally_simulation_mode: true
   });
 
@@ -152,7 +152,7 @@ export const CompanyMasterPage: React.FC = () => {
         financial_year_start_month: 4,
         tally_company_name: '',
         tally_url: 'http://localhost:9000',
-        default_bank_ledger: 'HDFC Bank',
+        default_bank_ledger: '',
         tally_simulation_mode: true
       });
       await loadCompanies();
@@ -425,9 +425,9 @@ export const CompanyMasterPage: React.FC = () => {
                             <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Default Bank Ledger</label>
                             <input
                               type="text"
-                              value={editingCompany.default_bank_ledger || 'HDFC Bank'}
+                              value={editingCompany.default_bank_ledger || ''}
                               onChange={(e) => setEditingCompany({ ...editingCompany, default_bank_ledger: e.target.value })}
-                              placeholder="HDFC Bank Current A/c"
+                              placeholder="e.g. State Bank of India, ICICI Bank, or HDFC Bank"
                               className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg"
                             />
                           </div>
@@ -488,7 +488,7 @@ export const CompanyMasterPage: React.FC = () => {
                         <div className="bg-slate-50 dark:bg-slate-800/40 p-3 rounded-lg border border-slate-100 dark:border-slate-800">
                           <span className="text-slate-400 block font-medium">Default Bank Ledger:</span>
                           <span className="font-bold text-slate-800 dark:text-slate-200 block truncate mt-0.5">
-                            {comp.default_bank_ledger || 'HDFC Bank'}
+                            {comp.default_bank_ledger || 'Not specified'}
                           </span>
                           <span className="text-[11px] text-slate-500 block truncate">
                             Mode: {comp.tally_simulation_mode ? 'Simulation Mode' : 'Live Tally Prime'}
@@ -766,6 +766,21 @@ export const CompanyMasterPage: React.FC = () => {
                     placeholder="Name opened in Tally Prime"
                     className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg"
                   />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Primary Bank Ledger (as in Tally)
+                  </label>
+                  <input
+                    type="text"
+                    value={newCompany.default_bank_ledger}
+                    onChange={(e) => setNewCompany({ ...newCompany, default_bank_ledger: e.target.value })}
+                    placeholder="e.g. State Bank of India, ICICI Bank, or HDFC Bank"
+                    className="w-full p-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg"
+                  />
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                    Exact ledger name under 'Bank Accounts' in Tally Prime. No account number required.
+                  </p>
                 </div>
               </div>
 

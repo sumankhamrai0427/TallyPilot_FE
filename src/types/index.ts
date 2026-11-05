@@ -10,6 +10,8 @@ export interface TransactionClassification {
   ambiguity_reason: string | null;
   requires_human_review: boolean;
   is_fallback_rule: boolean;
+  requires_new_ledger?: boolean;
+  suggested_group_name?: string;
   created_at: string;
 }
 

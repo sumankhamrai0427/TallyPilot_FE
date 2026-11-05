@@ -19,9 +19,10 @@ import { AuditLogsPage } from './pages/AuditLogsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { api } from './services/api';
 import { DashboardSummary } from './types';
+import { FirstCompanyModal } from './components/FirstCompanyModal';
 
 const MainLayout: React.FC = () => {
-  const { activeCompany, activeFinancialYear } = useCompany();
+  const { companies, activeCompany, activeFinancialYear, isLoading, refreshTenantData } = useCompany();
   const [summary, setSummary] = useState<DashboardSummary | undefined>(undefined);
 
   const loadSummary = async () => {
@@ -43,6 +44,11 @@ const MainLayout: React.FC = () => {
 
   return (
     <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans antialiased transition-colors duration-200">
+      {/* Onboarding Modal: If database is completely empty (0 companies), prompt user to initialize Company #1 */}
+      {!isLoading && companies.length === 0 && (
+        <FirstCompanyModal onCompanyCreated={refreshTenantData} />
+      )}
+
       <Sidebar summary={summary} />
       <div className="flex-1 flex flex-col min-w-0">
         <Navbar summary={summary} />
