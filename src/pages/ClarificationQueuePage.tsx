@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { HelpCircle, Check, X, AlertTriangle, ArrowRight, RefreshCw, CheckCircle2, FileText, Layers, ShieldCheck } from 'lucide-react';
+import { HelpCircle, Check, X, AlertTriangle, ArrowRight, RefreshCw, CheckCircle2, FileText, Layers, ShieldCheck, Clock } from 'lucide-react';
 import { api } from '../services/api';
 import { BankTransaction } from '../types';
 
@@ -420,6 +420,39 @@ export const ClarificationQueuePage: React.FC<ClarificationQueuePageProps> = ({ 
                     Needs Review
                   </span>
                 </div>
+
+                {/* Accounting Context Badges */}
+                {activeTx.narration && (
+                  <div className="space-y-2">
+                    {/refund|reversal/i.test(activeTx.narration) && (
+                      <div className="flex items-start gap-2 p-2.5 bg-amber-50/80 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg text-xs text-amber-800 dark:text-amber-200">
+                        <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+                        <div>
+                          <strong className="font-semibold block">Refund Verification Required:</strong>
+                          <span>Verify whether this refund is a customer order return or supplier rebate before posting to ledger.</span>
+                        </div>
+                      </div>
+                    )}
+                    {/advance|order ref/i.test(activeTx.narration) && (
+                      <div className="flex items-start gap-2 p-2.5 bg-purple-50/80 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 rounded-lg text-xs text-purple-800 dark:text-purple-200">
+                        <FileText className="w-4 h-4 shrink-0 text-purple-600 dark:text-purple-400 mt-0.5" />
+                        <div>
+                          <strong className="font-semibold block">Customer Advance:</strong>
+                          <span>Recorded under <em>Current Liabilities</em> as an unfulfilled order advance.</span>
+                        </div>
+                      </div>
+                    )}
+                    {/annual support|amc|insurance policy|commercial property/i.test(activeTx.narration) && (
+                      <div className="flex items-start gap-2 p-2.5 bg-cyan-50/80 dark:bg-cyan-950/40 border border-cyan-200 dark:border-cyan-800 rounded-lg text-xs text-cyan-800 dark:text-cyan-200">
+                        <Clock className="w-4 h-4 shrink-0 text-cyan-600 dark:text-cyan-400 mt-0.5" />
+                        <div>
+                          <strong className="font-semibold block">Prepaid Asset:</strong>
+                          <span>Multi-period contract. Recommend recording as a Prepaid Asset under <em>Current Assets</em>.</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Details Card */}
                 <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-lg border border-slate-100 dark:border-slate-800 text-sm space-y-2">
